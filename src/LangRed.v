@@ -91,25 +91,22 @@ Module Reducibility (Tur: Turing).
           intuition.
         }
         rename i into p.
-        remember (decode_machine_input p).
-        symmetry in Heqp0.
-        destruct p0 as (m, i).
+        destruct (decode_machine_input p) as (M, w) eqn:Heq.
         split; auto.
         apply decides_accept with (L:=HALT_tm); auto.
         unfold HALT_tm.
-        rewrite Heqp0.
+        rewrite Heq.
         rewrite H0.
         intros N; inversion N.
       + unfold Decider.
         intros.
         intros N.
         apply halt_mach_loop in N.
-        remember (decode_machine_input i) as p.
-        destruct p as (M, w).
+        destruct (decode_machine_input i) as (M,w) eqn:Heqp.
         destruct N as [(Hx,Hy)|N].
         - apply H in Hx.
           unfold HALT_tm in Hx.
-          rewrite <- Heqp in Hx.
+          rewrite Heqp in Hx.
           contradiction.
         - apply H in N.
           assumption.
@@ -196,14 +193,12 @@ Module Reducibility (Tur: Turing).
     unfold E_tm_A_tm_spec, E_tm_A_tm, Recognizes.
     split; intros.
     - apply run_build in H0.
-      remember (decode_machine_input i).
-      destruct p as (M, w).
+      destruct (decode_machine_input i) as (M, w).
       intros N.
       run_simpl_all.
       apply e_tm_reject_inv in H1; auto.
     - apply run_build.
-      remember (decode_machine_input _) as q.
-      destruct q as (M, w).
+      destruct (decode_machine_input _) as (M, w).
       apply run_seq_reject.
       + apply run_call_eq.
         apply decides_reject with (L:=E_tm); auto.
