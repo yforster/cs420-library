@@ -131,7 +131,7 @@ Module Decidability (Tur: Turing).
   Local Definition negator D w :=
     let M := decode_machine w in
     (* D decides A_TM, thus we are running M with <M> *)
-    mlet b <- Call D << M, w>> in
+    mlet b <- Call D <[ M , w ]> in
     halt_with (negb b).
 
   Local Lemma negator_recognizes:

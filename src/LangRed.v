@@ -1,12 +1,12 @@
-Require Import Turing.
-Require Import LangDec.
+Require Import Coq.Setoids.Setoid.
+Require Turing.
+Require LangDec.
 
-Module Reducibility (Tur: Turing).
-  Import Tur.
-  Module B := TuringBasics Tur.
-  Import B.
-  Module D := Decidability Tur.
+Module Reducibility (T: Turing.Turing).
+  Import T.
+  Module D := LangDec.Decidability T.
   Import D.
+  Import D.B.
 
   Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
 
@@ -162,7 +162,7 @@ Module Reducibility (Tur: Turing).
   Local Definition E_tm_A_tm D :=
     Build (fun p =>
       let (M, w) := decode_machine_input p in
-      mlet b <- Call D <[ E_tm_M1 M w ]> in
+      mlet b <- Call D [[ E_tm_M1 M w ]] in
       halt_with (negb b)
     ).
 
@@ -174,7 +174,7 @@ Module Reducibility (Tur: Turing).
   Local Lemma e_tm_reject_inv:
     forall D M,
     Decides D E_tm ->
-    run D <[ M ]> = Reject ->
+    run D [[ M ]] = Reject ->
      ~ IsEmpty M.
   Proof.
     intros.
@@ -316,7 +316,7 @@ Module Reducibility (Tur: Turing).
 
 End E_TM. (* --------------------------------------------------------------- *)
 
-  Definition Reduction f (B A:lang) := forall x, A x <-> B (f x).
+  Definition Reduction f (A B:lang) := forall w, A w <-> B (f w).
 
   Definition Reducible A B := exists f, Reduction f A B.
 
@@ -324,44 +324,83 @@ End E_TM. (* --------------------------------------------------------------- *)
 
   Section CompFuncs.
 
+    Lemma reducible_def:
+      forall f A B,
+      Reduction f A B ->
+      Reducible A B.
+    Proof.
+      intros.
+      exists f.
+      assumption.
+    Qed.
+
+    Lemma reducible_iff:
+      forall f A B,
+      (forall w, A w <-> B (f w)) ->
+      Reducible A B.
+    Proof.
+      intros.
+      exists f.
+      assumption.
+    Qed.
+
+    Lemma co_red:
+      forall A B,
+      A <=m B ->
+      compl A <=m compl B.
+    Proof.
+      intros.
+      unfold Reducible in *.
+      destruct H as (f, Hr).
+      unfold Reduction in *.
+      exists f.
+      intros.
+      unfold compl.
+      split; intros.
+      + intros N.
+        apply Hr in N.
+        contradiction.
+      + intros N.
+        apply Hr in N.
+        contradiction.
+    Qed.
+
     Theorem reducible_decidable: (*------------ Theorem 5.22 ---------------- *)
       forall A B,
       A <=m B ->
-      Decidable A ->
-      Decidable B.
+      Decidable B ->
+      Decidable A.
     Proof.
-      intros.
-      destruct H as (f, H).
-      destruct H0 as (M, (Hr, Hd)).
+      intros A B (f, Hred) (M, (Hr, Hd)).
       apply decidable_def with (m:= Build (fun w => Call M (f w))).
       split.
       - unfold Recognizes.
         split; intros. {
-          apply run_build in H0.
+          apply run_build in H.
           run_simpl_all.
-          apply Hr in H4.
-          apply H.
+          apply Hred.
+          apply Hr.
           assumption.
         }
         apply run_build.
         apply run_call_eq.
         apply Hr.
-        apply H.
+        apply Hred.
         assumption.
       - unfold Decider in *.
         intros.
         intros N.
         apply run_build in N.
         run_simpl_all.
-        apply Hd in H3.
+        apply Hd in H.
         assumption.
     Qed.
 
     Theorem reducible_recognizable: (*------------ Theorem 5.28 ------------- *)
       forall A B,
       A <=m B ->
-      Recognizable A ->
-      Recognizable B.
+      Recognizable B ->
+      Recognizable A.
     Proof.
       intros A B Hred Ha.
       unfold Recognizes in *.
@@ -386,8 +425,8 @@ End E_TM. (* --------------------------------------------------------------- *)
     Corollary reducible_undecidable: (* ---------- Corollary 5.29 ----------- *)
       forall A B,
       A <=m B ->
-      ~ Decidable B ->
-      ~ Decidable A.
+      ~ Decidable A ->
+      ~ Decidable B.
     Proof.
       intros.
       intros Hd.
@@ -395,16 +434,125 @@ End E_TM. (* --------------------------------------------------------------- *)
       eauto using reducible_decidable.
     Qed.
 
-    Corollary reducible_unrecognizable: (* ---------- Theorem 5.30 ---------- *)
+    Corollary reducible_unrecognizable: (* ---------- Theorem 5.28 ---------- *)
       forall A B,
       A <=m B ->
-      ~ Recognizable B ->
-      ~ Recognizable A.
+      ~ Recognizable A ->
+      ~ Recognizable B.
     Proof.
       intros A B Hred Ha Hb.
       contradict Ha.
       eauto using reducible_recognizable.
     Qed.
+
+
   End CompFuncs.
 
+  Section EQ_TM.
+
+    (** We formally define EQ_TM: *)
+    Definition EQ_tm := fun p =>
+      let (w1, w2) := decode_pair p in
+      let M1 := decode_machine w1 in
+      let M2 := decode_machine w2 in
+      Lang M1 ≡ Lang M2.
+
+    Local Definition F1 p :=
+      let (M, w) := decode_machine_input p in
+      let M1 : input := [[ Build (fun _ => REJECT) ]] in
+      let M2 : input := [[ Build (fun _ => Call M w) ]] in
+      encode_pair (M1 , M2).
+
+    Lemma co_a_tm_red_eq_tm:
+      compl A_tm <=m EQ_tm.
+    Proof.
+      apply reducible_iff with (f:=F1).
+      unfold F1, EQ_tm; split; intros.
+      - unfold A_tm, compl, Equiv, Lang in *.
+        destruct (decode_machine_input w) as (M, x) eqn:Heq.
+        rewrite decode_encode_pair_rw in *.
+        repeat rewrite decode_encode_machine_rw in *.
+        destruct (run M x) eqn:Hr.
+        + contradiction.
+        + split; intros; apply run_build in H0; run_simpl.
+          rewrite Hr in *.
+          run_simpl.
+        + split; intros; apply run_build in H0; run_simpl.
+          rewrite Hr in *.
+          run_simpl.
+      - destruct (decode_machine_input w) as (M, x) eqn:Heq.
+        unfold compl.
+        intros N.
+        rewrite decode_encode_pair_rw in *.
+        unfold Equiv in *.
+        assert (Hm: run (Build (fun _ => Call M x)) w = Accept). {
+          unfold A_tm in *.
+          rewrite Heq in *.
+          apply run_build, run_call_eq.
+          assumption.
+        }
+        clear N.
+        repeat rewrite decode_encode_machine_rw in *.
+        apply H in Hm.
+        apply run_build in Hm.
+        run_simpl.
+    Qed.
+
+    Local Definition F2 p :=
+      let (M, w) := decode_machine_input p in
+      let M1 : input := [[ Build (fun _ => ACCEPT) ]] in
+      let M2 : input := [[ Build (fun _ => Call M w) ]] in
+      encode_pair (M1 , M2).
+
+    Lemma a_tm_red_eq_tm:
+      A_tm <=m EQ_tm.
+    Proof.
+      apply reducible_iff with (f:=F2).
+      unfold F2, EQ_tm; split; intros.
+      - destruct (decode_machine_input w) as (M, x) eqn:Heq.
+        rewrite decode_encode_pair_rw.
+        unfold Equiv, Lang; split; intros;
+        rewrite decode_encode_machine_rw in *.
+        + apply run_build.
+          apply run_call_eq.
+          unfold A_tm in *.
+          rewrite Heq in *.
+          assumption.
+        + apply run_build.
+          apply run_ret.
+      - destruct (decode_machine_input w) as (M, x) eqn:Heq.
+        rewrite decode_encode_pair_rw in *.
+        rewrite decode_encode_machine_rw in *.
+        rewrite decode_encode_machine_rw in *.
+        unfold A_tm.
+        rewrite Heq.
+        unfold Equiv, Lang in *.
+        assert (Ha: run (Build (fun _ => ACCEPT)) w = Accept). {
+          apply run_build.
+          apply run_ret.
+        }
+        apply H in Ha.
+        apply run_build in Ha.
+        run_simpl.
+        reflexivity.
+    Qed.
+
+    Theorem eq_tm_not_recognizable:
+      ~ Recognizable EQ_tm.
+    Proof.
+      apply reducible_unrecognizable with (A:=compl A_tm); auto.
+      - apply co_a_tm_red_eq_tm.
+      - apply co_a_tm_not_recognizable.
+    Qed.
+
+    Theorem cPeq_tm_not_recognizable:
+      ~ Recognizable (compl EQ_tm).
+    Proof.
+      apply reducible_unrecognizable with (A:=compl A_tm); auto.
+      - apply co_red.
+        apply a_tm_red_eq_tm.
+      - apply co_a_tm_not_recognizable.
+    Qed.
+
+  End EQ_TM.
 End Reducibility.

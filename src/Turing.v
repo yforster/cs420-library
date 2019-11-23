@@ -8,31 +8,27 @@ Module Type Turing.
   (** Equality over the input is decidable. *)
   Parameter input_eq_dec: forall x y: input, {x = y} + {x <> y}.
   Parameter machine: Type.
+
   (** We also define a function to serialize a machine into a string (of type
       input). In the book, this corresponds to notation <M>. *)
   Parameter encode_machine: machine -> input.
   (** Similarly, we have a function that takes a string and produces a machine.
       In the book, this corresponds to notation M = <M> *)
   Parameter decode_machine: input -> machine.
-  (** Given a machine and a string, encodes the pair as a string.
-      In the book, this corresponds to notation <M, w>. *)
-  Parameter encode_machine_input: machine -> input -> input.
-  (** Given a string this function deserializes a pair M and w, given an encoded
-      string <M,w>. *)
-  Parameter decode_machine_input : input -> (machine * input).
   (** Decoding and encoding a machine yields the same machine. *)
   Axiom decode_encode_machine_rw:
     forall m,
     decode_machine (encode_machine m) = m.
-  (** Decoding and encoding a pair yields the same pair. *)
-  Axiom decode_encode_machine_input_rw:
-    forall m i,
-    decode_machine_input
-          (encode_machine_input m i) = (m, i).
+
+  Parameter decode_pair : input -> (input * input).
+  Parameter encode_pair: (input * input) -> input.
+  Axiom decode_encode_pair_rw:
+    forall p,
+    decode_pair (encode_pair p) = p.
 
   (** Let us define an abbreviation of the above functions. *)
-  Notation "'<<' M ',' w '>>'" := (encode_machine_input M w).
-  Notation "'<[' M ']>'" := (encode_machine M).
+  Notation "'<<' w1 ',' w2 '>>'" := (encode_pair w1 w2).
+  Notation "'[[' M ']]'" := (encode_machine M).
 
 
   (** A language is a function that given an input (a word) holds if, and only if,
@@ -125,6 +121,31 @@ End Turing.
 Module TuringBasics (Tur : Turing).
   Import Tur.
 
+  (** Given a machine and a string, encodes the pair as a string.
+      In the book, this corresponds to notation <M, w>. *)
+  Definition encode_machine_input (M:machine) (w:input) : input :=
+    encode_pair (encode_machine M, w).
+
+  (** Given a string this function deserializes a pair M and w, given an encoded
+      string <M,w>. *)
+  Definition decode_machine_input p := let (M, w) :=
+    decode_pair p in (decode_machine M, w).
+
+  Notation "'<[' M , w ']>'" := (encode_machine_input M w).
+
+  (** Decoding and encoding a pair yields the same pair. *)
+  Lemma decode_encode_machine_input_rw:
+    forall M w,
+    decode_machine_input
+          (encode_machine_input M w) = (M, w).
+  Proof.
+    intros.
+    unfold decode_machine_input.
+    unfold encode_machine_input.
+    rewrite decode_encode_pair_rw.
+    rewrite decode_encode_machine_rw.
+    reflexivity.
+  Qed.
 
   (** Define the equivalence of languages *)
   Definition Equiv (L1 L2:lang) :=

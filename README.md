@@ -31,4 +31,4 @@ of Computation, by Michael Sipser, 3<sup>rd</sup> edition.
 * [x] Theorem 5.22: If $`A \le_{\mathrm{m}} B`$ and $`A`$ decidable, then $`B`$ decidable.
 * [x] Theorem 5.28: If $`A \le_{\mathrm{m}} B`$ and $`A`$ recognizable, then $`B`$ recognizable.
 * [x] Corollary 5.29: If $`A \le_{\mathrm{m}} B`$ and $`B`$ is undecidable, then $`A`$ is undecidable.
-* [x] Corollary 5.20: If $`A \le_{\mathrm{m}} B`$ and $`B`$ is unrecognizable, then $`A`$ is unrecognizable.
+* [x] Corollary 5.30: $`EQ_{\mathsf{TM}}`$ unrecognizable and co-unrecognizable.
