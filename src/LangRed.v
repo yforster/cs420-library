@@ -200,10 +200,7 @@ Module Reducibility (Tur: Turing).
       destruct p as (M, w).
       intros N.
       run_simpl_all.
-      inversion H4; subst; clear H4.
-      + inversion H6.
-      + symmetry in H1.
-        apply e_tm_reject_inv in H1; auto.
+      apply e_tm_reject_inv in H1; auto.
     - apply run_build.
       remember (decode_machine_input _) as q.
       destruct q as (M, w).

@@ -1,4 +1,5 @@
 Require Import Turing.
+Require Import Coq.Bool.Bool.
 
 Module Decidability (Tur: Turing).
   Import Tur.
@@ -116,8 +117,6 @@ Module Decidability (Tur: Turing).
     apply a_tm_run_accept in H1; auto.
   Qed.
 
-  Local Definition halt_with (b:bool) := Ret (if b then Accept else Reject).
-
   (**
     This new TM calls D to determine what M does when the input to M is its own
     description <M, <M>>. Once D has determined this information, it does the
@@ -145,9 +144,7 @@ Module Decidability (Tur: Turing).
       apply run_build in H0.
       unfold negator, Negator in *.
       run_simpl_all.
-      inversion H4; subst; clear H4; simpl in *.
-      - inversion H6.
-      - reflexivity.
+      reflexivity.
     }
     unfold Negator in *.
     apply run_build.
@@ -258,8 +255,6 @@ Module Decidability (Tur: Turing).
       - unfold Inv.
         apply run_build in H0.
         run_simpl_all.
-        inversion H4; subst; clear H4;
-        inversion H6; subst; clear H6.
         reflexivity.
       - apply run_build.
         unfold Inv in *.
@@ -276,11 +271,10 @@ Module Decidability (Tur: Turing).
     apply run_build in Heqr.
     inversion Heqr; subst; clear Heqr;
     run_simpl_all.
-    - compute in H5.
-      inversion H3; subst; clear H3.
-      + run_simpl.
+    - inversion H3; subst; clear H3.
+      + simpl in *; run_simpl_all.
         reflexivity.
-      + run_simpl.
+      + simpl in *; run_simpl_all.
         reflexivity.
     - rewrite H4.
       reflexivity.
@@ -388,20 +382,19 @@ Module Decidability (Tur: Turing).
     split.
     + intros.
       inversion H; subst; clear H.
-      * destruct b. {
+      * run_simpl_all.
+        destruct b. {
           run_simpl_all.
-          apply lang_accept_rev.
-          assumption.
+          auto using lang_accept_rev.
         }
         run_simpl_all.
       * run_simpl_all.
       * run_simpl_all.
         inversion H5; subst; clear H5. {
           run_simpl_all.
-          apply lang_accept_rev.
-          assumption.
+          auto using lang_accept_rev.
         }
-        run_simpl.
+        run_simpl_all.
     + intros.
       remember (run m2 i) as r.
       symmetry in Heqr.
