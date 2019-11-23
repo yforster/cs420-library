@@ -381,20 +381,11 @@ Module Decidability (Tur: Turing).
     rewrite <- run_build.
     split.
     + intros.
-      inversion H; subst; clear H.
-      * run_simpl_all.
-        destruct b. {
-          run_simpl_all.
-          auto using lang_accept_rev.
-        }
-        run_simpl_all.
-      * run_simpl_all.
-      * run_simpl_all.
-        inversion H5; subst; clear H5. {
-          run_simpl_all.
-          auto using lang_accept_rev.
-        }
-        run_simpl_all.
+      inversion H; subst; clear H; run_simpl_all.
+      * destruct b; run_simpl_all.
+        assumption. (* Definition of Lang *) 
+      * inversion H5; subst; clear H5; run_simpl_all.
+        assumption. (* Definition of Lang *)
     + intros.
       remember (run m2 i) as r.
       symmetry in Heqr.
@@ -414,22 +405,15 @@ Module Decidability (Tur: Turing).
     remember (run (Build _) i) as r.
     symmetry in Heqr.
     apply run_build in Heqr.
-    inversion Heqr; subst; clear Heqr.
-    - run_simpl_all.
-      inversion H5; subst; clear H5;
-      inversion H6; subst; clear H6;
-      intuition.
-    - run_simpl_all.
-      right.
+    inversion Heqr; subst; clear Heqr; run_simpl_all.
+    - destruct b; run_simpl_all; intuition.
+    - right.
       intros N.
       rewrite N in *.
       rewrite H in *.
-      inversion H5.
-    - run_simpl_all.
-      inversion H4; subst; clear H4;
-      inversion H7; subst; clear H7; auto.
-    - run_simpl_all.
-      rewrite H.
+      run_simpl. (* Dec Loop b -> contradiction *) 
+    - destruct b1; run_simpl_all; auto.
+    - rewrite H.
       intuition.
   Qed.
 
@@ -504,14 +488,16 @@ Module Decidability (Tur: Turing).
         * intros N; inversion N.
         * destruct Hp as (N, _).
           inversion N.
-      - apply recognizes_run_loop with (L:=L) in Heqr; auto.
+      - (* Since [m1 i] loops, then [m2 i] accepts : *)
+        apply recognizes_run_loop with (L:=L) in Heqr; auto.
         apply co_recognizes_accept with (m:=m2) in Heqr; auto.
+        (* Let us simplify [m2] accepts in [Hp] *)
+        rewrite Heqr in *.
         destruct (run mpar i).
-        * inversion Hp.
-        * intros N; inversion N.
+        * (* Goal is trivial *) intros N; inversion N.
+        * (* Goal is trivial *) intros N; inversion N.
         * destruct Hp as (_, Hp).
-          rewrite Hp in *.
-          inversion Heqr.
+          inversion Hp. (* Contradiction *)
   Qed.
 
   (** Theorem 4.22 *)
