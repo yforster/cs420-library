@@ -316,5 +316,95 @@ Module Reducibility (Tur: Turing).
 
 End E_TM. (* --------------------------------------------------------------- *)
 
+  Definition Reduction f (B A:lang) := forall x, A x <-> B (f x).
+
+  Definition Reducible A B := exists f, Reduction f A B.
+
+  Infix "<=m" := Reducible (at level 80, right associativity).
+
+  Section CompFuncs.
+
+    Theorem reducible_decidable: (*------------ Theorem 5.22 ---------------- *)
+      forall A B,
+      A <=m B ->
+      Decidable A ->
+      Decidable B.
+    Proof.
+      intros.
+      destruct H as (f, H).
+      destruct H0 as (M, (Hr, Hd)).
+      apply decidable_def with (m:= Build (fun w => Call M (f w))).
+      split.
+      - unfold Recognizes.
+        split; intros. {
+          apply run_build in H0.
+          run_simpl_all.
+          apply Hr in H4.
+          apply H.
+          assumption.
+        }
+        apply run_build.
+        apply run_call_eq.
+        apply Hr.
+        apply H.
+        assumption.
+      - unfold Decider in *.
+        intros.
+        intros N.
+        apply run_build in N.
+        run_simpl_all.
+        apply Hd in H3.
+        assumption.
+    Qed.
+
+    Theorem reducible_recognizable: (*------------ Theorem 5.28 ------------- *)
+      forall A B,
+      A <=m B ->
+      Recognizable A ->
+      Recognizable B.
+    Proof.
+      intros A B Hred Ha.
+      unfold Recognizes in *.
+      destruct Hred as (f, Hr).
+      destruct Ha as (M, Ha).
+      apply recognizable_def with (m:= Build (fun w => Call M (f w))).
+      unfold Recognizes.
+      split; intros. {
+        apply run_build in H.
+        run_simpl_all.
+        apply Ha in H3.
+        apply Hr in H3.
+        assumption.
+      }
+      apply run_build.
+      apply run_call_eq.
+      apply Hr in H.
+      apply Ha.
+      assumption.
+    Qed.
+
+    Corollary reducible_undecidable: (* ---------- Corollary 5.29 ----------- *)
+      forall A B,
+      A <=m B ->
+      ~ Decidable B ->
+      ~ Decidable A.
+    Proof.
+      intros.
+      intros Hd.
+      contradict H0.
+      eauto using reducible_decidable.
+    Qed.
+
+    Corollary reducible_unrecognizable: (* ---------- Theorem 5.30 ---------- *)
+      forall A B,
+      A <=m B ->
+      ~ Recognizable B ->
+      ~ Recognizable A.
+    Proof.
+      intros A B Hred Ha Hb.
+      contradict Ha.
+      eauto using reducible_recognizable.
+    Qed.
+  End CompFuncs.
 
 End Reducibility.
