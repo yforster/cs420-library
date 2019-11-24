@@ -466,10 +466,10 @@ End E_TM. (* --------------------------------------------------------------- *)
         simpl_rw.
         destruct (run M x) eqn:Hr.
         + contradiction.
-        + split; intros; apply run_build in H0; run_simpl.
+        + split; intros; run_simpl_all.
           rewrite Hr in *.
           run_simpl.
-        + split; intros; apply run_build in H0; run_simpl.
+        + split; intros; run_simpl_all.
           rewrite Hr in *.
           run_simpl.
       - destruct (decode_machine_input w) as (M, x) eqn:Heq.
@@ -480,7 +480,8 @@ End E_TM. (* --------------------------------------------------------------- *)
         assert (Hm: run (Build (fun _ => Call M x)) w = Accept). {
           unfold A_tm in *.
           rewrite Heq in *.
-          apply run_build, run_call_eq.
+          run_simpl.
+          apply run_call_eq.
           assumption.
         }
         clear N.
@@ -544,4 +545,6 @@ End E_TM. (* --------------------------------------------------------------- *)
     Qed.
 
   End EQ_TM.
+
+
 End Reducibility.
