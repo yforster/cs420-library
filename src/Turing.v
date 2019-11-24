@@ -209,6 +209,29 @@ Module TuringBasics (Tur : Turing).
     intuition.
   Qed.
 
+  Lemma equiv_symm:
+    forall L1 L2,
+    Equiv L1 L2 <-> Equiv L2 L1.
+  Proof.
+    unfold Equiv; split; intros.
+    - rewrite H.
+      intuition.
+    - rewrite H.
+      intuition.
+  Qed.
+
+  Lemma equiv_trans:
+    forall L1 L2 L3,
+    Equiv L1 L2 ->
+    Equiv L2 L3 ->
+    Equiv L1 L3.
+  Proof.
+    unfold Equiv; intros.
+    rewrite H.
+    rewrite H0.
+    intuition.
+  Qed.
+
   (** A language is recognizable, that is
       there is some machine m that recognizes it. *)
 
@@ -676,9 +699,11 @@ Module TuringBasics (Tur : Turing).
   match goal with
   | [ H: _ |- _ ] =>
     match type of H with
+    (*
       | Run (Seq _ _) Loop => idtac
       | Run (Seq _ _) Accept => idtac
       | Run (Seq _ _) Reject => idtac
+    *)
       | Run (Call _ _) _ => idtac
       | Run (Ret _) _ => idtac
       | Dec _ true => idtac
@@ -705,6 +730,7 @@ Module TuringBasics (Tur : Turing).
         | Reject = Loop => idtac
         | Loop = Accept => idtac
         | Loop = Reject => idtac
+        | False => idtac
         | _ => fail
         end; inversion H
     end.
@@ -712,6 +738,9 @@ Module TuringBasics (Tur : Turing).
   Ltac run_simpl_norm :=
     match goal with
     | [ H: ?x = ?x |- _] => clear H
+    | [ H: Lang (Build _) _ |- _ ] => apply run_build in H
+    | H: run (Build _) _ = _ |- _ => apply run_build in H
+    | [ H: _ |- run (Build _) _ = _ ] => apply run_build
     | [ H: Run (halt_with _) _ |- _ ] => apply run_halt_with_to_dec in H
     | [ H: negb _ = true |- _ ] => apply negb_true_iff in H
     | [ H: negb _ = false |- _ ] => apply negb_false_iff in H

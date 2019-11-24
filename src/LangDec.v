@@ -141,15 +141,15 @@ Module Decidability (Tur: Turing).
     intros.
     unfold Recognizes.
     split; intros. {
-      apply run_build in H0.
       unfold negator, Negator in *.
+      run_simpl_all.
+      inversion H0; subst; clear H0.
       run_simpl_all.
       reflexivity.
     }
     unfold Negator in *.
-    apply run_build.
+    run_simpl_all.
     unfold negator.
-    rewrite neg_accept_rw in *.
     apply run_seq_reject.
     - apply run_call_eq.
       assumption.
@@ -218,12 +218,12 @@ Module Decidability (Tur: Turing).
     unfold Recognizes.
     unfold A_tm_mach, A_tm.
     split; intros. {
-      apply run_build in H.
+      run_simpl_all.
       destruct (decode_machine_input i) as (m, w).
       run_simpl.
       reflexivity.
     }
-    apply run_build.
+    run_simpl.
     destruct (decode_machine_input i) as (m, w).
     apply run_call_eq.
     assumption.
@@ -251,15 +251,11 @@ Module Decidability (Tur: Turing).
     exists (Build (fun w => (Seq (Call m w) (fun b => halt_with (negb b) )))).
     split. {
       unfold Recognizes.
-      split; intros.
-      - unfold Inv.
-        apply run_build in H0.
+      split; intros; unfold Inv in *; run_simpl_all.
+      - inversion H0; subst; clear H0.
         run_simpl_all.
         reflexivity.
-      - apply run_build.
-        unfold Inv in *.
-        rewrite neg_accept_rw in *.
-        apply run_seq_reject.
+      - apply run_seq_reject.
         + apply run_call_eq.
           assumption.
         + apply run_ret.

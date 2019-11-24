@@ -38,17 +38,15 @@ Module Reducibility (T: Turing.Turing).
       apply run_build in H.
       remember (decode_machine_input i).
       destruct p as (M, w).
-      run_simpl_all.
+      inversion H; subst; clear H; run_simpl_all.
       inversion H3; subst; clear H3; run_simpl_all.
       intuition.
     - unfold HALT_tm_to_A_tm in *.
-      remember (decode_machine_input i).
-      symmetry in Heqp.
-      destruct p as (M, w).
+      destruct (decode_machine_input i) as (M,w) eqn:Heq.
       destruct H.
       unfold halt_mach.
-      apply run_build.
-      rewrite Heqp.
+      run_simpl_all.
+      rewrite Heq.
       apply run_seq_accept; auto using run_call_eq.
   Qed.
 
@@ -62,16 +60,10 @@ Module Reducibility (T: Turing.Turing).
     apply run_build in H.
     remember (decode_machine_input p) as q.
     destruct q as (M, w).
-    inversion H; subst; clear H.
-    - inversion H2; subst; clear H2.
-      inversion H3; subst; clear H3.
-      + inversion H5; subst; clear H5.
-        symmetry in Heqq.
-        symmetry in H0.
-        auto.
-      + inversion H5.
-    - inversion H1; subst; clear H1.
-      auto.
+    inversion H; subst; clear H; run_simpl_all.
+    - inversion H3; subst; clear H3; run_simpl_all.
+      intuition.
+    - intuition.
   Qed.
 
   (** Theorem 5.1 *)
@@ -142,7 +134,7 @@ Module Reducibility (T: Turing.Turing).
     unfold Recognizes, E_tm_M1, E_tm_M1_lang; split; intros.
     - apply run_build in H.
       destruct (input_eq_dec i w). {
-        run_simpl.
+        run_simpl_all.
         intuition.
       }
       inversion H.
@@ -192,12 +184,13 @@ Module Reducibility (T: Turing.Turing).
     intros.
     unfold E_tm_A_tm_spec, E_tm_A_tm, Recognizes.
     split; intros.
-    - apply run_build in H0.
+    - run_simpl.
       destruct (decode_machine_input i) as (M, w).
       intros N.
+      inversion H0; subst; clear H0.
       run_simpl_all.
       apply e_tm_reject_inv in H1; auto.
-    - apply run_build.
+    - run_simpl.
       destruct (decode_machine_input _) as (M, w).
       apply run_seq_reject.
       + apply run_call_eq.
@@ -219,13 +212,13 @@ Module Reducibility (T: Turing.Turing).
     intros x.
     intros N.
     unfold E_tm_M1 in *.
-    apply run_build in N.
+    run_simpl.
     destruct (input_eq_dec x w). {
       subst.
       run_simpl.
       contradiction.
     }
-    inversion N.
+    run_simpl.
   Qed.
 
   Local Lemma not_empty_to_accept:
@@ -261,7 +254,7 @@ Module Reducibility (T: Turing.Turing).
     unfold NeverAccept in *.
     assert (N := N w).
     contradict N.
-    apply run_build.
+    run_simpl.
     destruct (input_eq_dec w w).
     - auto using run_call_eq.
     - contradiction.
@@ -289,7 +282,7 @@ Module Reducibility (T: Turing.Turing).
     unfold Decider, E_tm_A_tm.
     intros.
     intros N.
-    apply run_build in N.
+    run_simpl.
     destruct (decode_machine_input _) as (M, w).
     inversion N; subst; clear N.
     - destruct b; inversion H5.
@@ -376,7 +369,6 @@ End E_TM. (* --------------------------------------------------------------- *)
       split.
       - unfold Recognizes.
         split; intros. {
-          apply run_build in H.
           run_simpl_all.
           apply Hred.
           apply Hr.
@@ -409,7 +401,6 @@ End E_TM. (* --------------------------------------------------------------- *)
       apply recognizable_def with (m:= Build (fun w => Call M (f w))).
       unfold Recognizes.
       split; intros. {
-        apply run_build in H.
         run_simpl_all.
         apply Ha in H3.
         apply Hr in H3.
@@ -449,6 +440,8 @@ End E_TM. (* --------------------------------------------------------------- *)
   End CompFuncs.
 
   Section EQ_TM.
+    Ltac simpl_rw := try repeat rewrite decode_encode_pair_rw in *;
+      try repeat rewrite decode_encode_machine_rw in *.
 
     (** We formally define EQ_TM: *)
     Definition EQ_tm := fun p =>
@@ -470,8 +463,7 @@ End E_TM. (* --------------------------------------------------------------- *)
       unfold F1, EQ_tm; split; intros.
       - unfold A_tm, compl, Equiv, Lang in *.
         destruct (decode_machine_input w) as (M, x) eqn:Heq.
-        rewrite decode_encode_pair_rw in *.
-        repeat rewrite decode_encode_machine_rw in *.
+        simpl_rw.
         destruct (run M x) eqn:Hr.
         + contradiction.
         + split; intros; apply run_build in H0; run_simpl.
@@ -494,11 +486,10 @@ End E_TM. (* --------------------------------------------------------------- *)
         clear N.
         repeat rewrite decode_encode_machine_rw in *.
         apply H in Hm.
-        apply run_build in Hm.
-        run_simpl.
+        run_simpl_all.
     Qed.
 
-    Local Definition F2 p :=
+    Let F2 p :=
       let (M, w) := decode_machine_input p in
       let M1 : input := [[ Build (fun _ => ACCEPT) ]] in
       let M2 : input := [[ Build (fun _ => Call M w) ]] in
@@ -521,9 +512,7 @@ End E_TM. (* --------------------------------------------------------------- *)
         + apply run_build.
           apply run_ret.
       - destruct (decode_machine_input w) as (M, x) eqn:Heq.
-        rewrite decode_encode_pair_rw in *.
-        rewrite decode_encode_machine_rw in *.
-        rewrite decode_encode_machine_rw in *.
+        simpl_rw.
         unfold A_tm.
         rewrite Heq.
         unfold Equiv, Lang in *.
@@ -545,7 +534,7 @@ End E_TM. (* --------------------------------------------------------------- *)
       - apply co_a_tm_not_recognizable.
     Qed.
 
-    Theorem cPeq_tm_not_recognizable:
+    Theorem co_eq_tm_not_recognizable:
       ~ Recognizable (compl EQ_tm).
     Proof.
       apply reducible_unrecognizable with (A:=compl A_tm); auto.
