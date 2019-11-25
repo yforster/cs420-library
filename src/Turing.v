@@ -516,6 +516,53 @@ Module TuringBasics (Tur : Turing).
       - contradiction.
     Qed.
 
+    Definition Predicate M f :=
+      (forall w, run M w = Accept <-> f w = true) /\
+      (forall w, run M w = Reject <-> f w = false). 
+
+    Lemma decider_to_predicate:
+      forall M L,
+      Decides M L ->
+      exists f, Predicate M f.
+    Proof.
+      intros.
+      exists (fun w =>
+        match run M w with
+        | Accept => true
+        | _ => false
+        end).
+      unfold Predicate.
+      split; split; intros.
+      - rewrite H0.
+        reflexivity.
+      - destruct (run M w); auto; inversion H0.
+      - rewrite H0.
+        reflexivity.
+      - destruct (run M w) eqn:Hr; auto; inversion H0.
+        apply H in Hr.
+        contradiction.
+    Qed.
+
+    Lemma predicate_accept:
+      forall M f w,
+      Predicate M f ->
+      run M w = Accept <-> f w = true.
+    Proof.
+      intros.
+      destruct H as (H1, H2).
+      auto.
+    Qed.
+
+    Lemma predicate_reject:
+      forall M f w,
+      Predicate M f ->
+      run M w = Reject <-> f w = false.
+    Proof.
+      intros.
+      destruct H as (H1, H2).
+      auto.
+    Qed.
+
   End Decidable.
 
   Definition halt_with (b:bool) := Ret (if b then Accept else Reject).
@@ -699,11 +746,6 @@ Module TuringBasics (Tur : Turing).
   match goal with
   | [ H: _ |- _ ] =>
     match type of H with
-    (*
-      | Run (Seq _ _) Loop => idtac
-      | Run (Seq _ _) Accept => idtac
-      | Run (Seq _ _) Reject => idtac
-    *)
       | Run (Call _ _) _ => idtac
       | Run (Ret _) _ => idtac
       | Dec _ true => idtac
@@ -735,6 +777,11 @@ Module TuringBasics (Tur : Turing).
         end; inversion H
     end.
 
+  Ltac run_simpl_rw := (
+      rewrite decode_encode_machine_input_rw in * ||
+      rewrite decode_encode_pair_rw in * ||
+      rewrite decode_encode_machine_rw in *).
+
   Ltac run_simpl_norm :=
     match goal with
     | [ H: ?x = ?x |- _] => clear H
@@ -754,7 +801,11 @@ Module TuringBasics (Tur : Turing).
     | [ H: Accept = _ |- _ ] => symmetry in H
     end.
 
-  Ltac run_simpl := ( run_simpl_explode || run_simpl_norm || run_simpl_inv ).
+  Ltac run_simpl :=
+    run_simpl_rw ||
+    run_simpl_explode ||
+    run_simpl_norm ||
+    run_simpl_inv.
 
 
   (** Simplify everything *)

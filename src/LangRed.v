@@ -358,6 +358,54 @@ End E_TM. (* --------------------------------------------------------------- *)
         contradiction.
     Qed.
 
+    Lemma co_red_2:
+      forall A B,
+      Recognizable B ->
+      A <=m compl B ->
+      compl A <=m B.
+    Proof.
+      intros A B (M, Hb) (f, Hr).
+      unfold Reducible.
+      exists f.
+      unfold Reduction in *.
+      split; intros.
+      - destruct (run M (f w)) eqn:Heq.
+        + apply recognizes_run_accept with (L:=B) in Heq; auto.
+        + apply recognizes_run_reject with (L:=B) in Heq; auto.
+          apply Hr in Heq.
+          contradiction.
+        + apply recognizes_run_loop with (L:=B) in Heq; auto.
+          apply Hr in Heq.
+          contradiction.
+      - intros N.
+        apply Hr in N.
+        contradiction.
+    Qed.
+
+    Lemma co_red_1:
+      forall A B,
+      Recognizable A ->
+      compl A <=m B ->
+      A <=m compl B.
+    Proof.
+      intros A B (M, Hb) (f, Hr).
+      unfold Reducible.
+      exists f.
+      unfold Reduction in *.
+      split; intros.
+      - intros N.
+        apply Hr in N.
+        contradiction.
+      - destruct (run M w) eqn:Heq.
+        + apply recognizes_run_accept with (L:=A) in Heq; auto.
+        + apply recognizes_run_reject with (L:=A) in Heq; auto.
+          apply Hr in Heq.
+          contradiction.
+        + apply recognizes_run_loop with (L:=A) in Heq; auto.
+          apply Hr in Heq.
+          contradiction.
+    Qed.
+
     Theorem reducible_decidable: (*------------ Theorem 5.22 ---------------- *)
       forall A B,
       A <=m B ->
@@ -440,8 +488,6 @@ End E_TM. (* --------------------------------------------------------------- *)
   End CompFuncs.
 
   Section EQ_TM.
-    Ltac simpl_rw := try repeat rewrite decode_encode_pair_rw in *;
-      try repeat rewrite decode_encode_machine_rw in *.
 
     (** We formally define EQ_TM: *)
     Definition EQ_tm := fun p =>
@@ -463,7 +509,7 @@ End E_TM. (* --------------------------------------------------------------- *)
       unfold F1, EQ_tm; split; intros.
       - unfold A_tm, compl, Equiv, Lang in *.
         destruct (decode_machine_input w) as (M, x) eqn:Heq.
-        simpl_rw.
+        run_simpl_all.
         destruct (run M x) eqn:Hr.
         + contradiction.
         + split; intros; run_simpl_all.
@@ -473,9 +519,8 @@ End E_TM. (* --------------------------------------------------------------- *)
           rewrite Hr in *.
           run_simpl.
       - destruct (decode_machine_input w) as (M, x) eqn:Heq.
-        unfold compl.
+        run_simpl_all.
         intros N.
-        rewrite decode_encode_pair_rw in *.
         unfold Equiv in *.
         assert (Hm: run (Build (fun _ => Call M x)) w = Accept). {
           unfold A_tm in *.
@@ -502,28 +547,23 @@ End E_TM. (* --------------------------------------------------------------- *)
       apply reducible_iff with (f:=F2).
       unfold F2, EQ_tm; split; intros.
       - destruct (decode_machine_input w) as (M, x) eqn:Heq.
-        rewrite decode_encode_pair_rw.
-        unfold Equiv, Lang; split; intros;
-        rewrite decode_encode_machine_rw in *.
-        + apply run_build.
-          apply run_call_eq.
+        run_simpl_all.
+        unfold Equiv, Lang; split; intros; run_simpl_all.
+        + apply run_call_eq.
           unfold A_tm in *.
           rewrite Heq in *.
           assumption.
-        + apply run_build.
-          apply run_ret.
-      - destruct (decode_machine_input w) as (M, x) eqn:Heq.
-        simpl_rw.
-        unfold A_tm.
-        rewrite Heq.
+        + apply run_ret.
+      - unfold A_tm.
+        destruct (decode_machine_input w) as (M, x) eqn:Heq.
+        run_simpl_all.
         unfold Equiv, Lang in *.
         assert (Ha: run (Build (fun _ => ACCEPT)) w = Accept). {
-          apply run_build.
+          run_simpl.
           apply run_ret.
         }
         apply H in Ha.
-        apply run_build in Ha.
-        run_simpl.
+        run_simpl_all.
         reflexivity.
     Qed.
 
@@ -542,6 +582,16 @@ End E_TM. (* --------------------------------------------------------------- *)
       - apply co_red.
         apply a_tm_red_eq_tm.
       - apply co_a_tm_not_recognizable.
+    Qed.
+
+    Theorem eq_tm_not_decidable:
+      ~ Decidable EQ_tm.
+    Proof.
+      intros N.
+      apply dec_rec_co_rec in N.
+      destruct N as (N, _).
+      apply eq_tm_not_recognizable in N.
+      assumption.
     Qed.
 
   End EQ_TM.

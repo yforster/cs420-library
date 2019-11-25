@@ -211,6 +211,45 @@ Module Decidability (Tur: Turing).
       let (M, w) := decode_machine_input p in
       Call M w).
 
+  Lemma accept_to_a_tm:
+    forall M L w,
+    Recognizes M L ->
+    L w ->
+    A_tm <[ M, w ]>.
+  Proof.
+    intros.
+    unfold A_tm.
+    destruct (decode_machine_input _) as (M', w') eqn:Hr.
+    run_simpl.
+    inversion Hr; subst; clear Hr.
+    apply recognizes_accept with (L:=L); auto.
+  Qed.
+
+  Lemma a_tm_to_accept:
+    forall M L w,
+    Recognizes M L ->
+    A_tm <[ M, w ]> ->
+    L w.
+  Proof.
+    intros.
+    unfold A_tm in *.
+    destruct (decode_machine_input _) as (M', w') eqn:Hr.
+    run_simpl.
+    inversion Hr; subst; clear Hr.
+    apply recognizes_run_accept with (m:=M'); auto.
+  Qed.
+
+  Lemma a_tm_accept_iff:
+    forall M L w,
+    Recognizes M L ->
+    A_tm <[ M, w ]> <-> L w.
+  Proof.
+    intros.
+    split.
+    - apply a_tm_to_accept; auto.
+    - apply accept_to_a_tm; auto.
+  Qed.
+
   Local Lemma a_tm_recognizes:
     Recognizes A_tm_mach A_tm.
   Proof.

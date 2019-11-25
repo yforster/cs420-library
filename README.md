@@ -24,7 +24,7 @@ of Computation, by Michael Sipser, 3<sup>rd</sup> edition.
 * [x] Theorem 5.1: $`HALT_{\mathsf{TM}}`$ is undecidable.
 * [x] Theorem 5.2: $`E_{\mathsf{TM}}`$ is undecidable.
 * [ ] Theorem 5.3: $`REGULAR_{\mathsf{TM}}`$ is undecidable.
-* [ ] Theorem 5.4: $`EQ_{\mathsf{TM}}`$ is undedicable.
+* [x] Theorem 5.4: $`EQ_{\mathsf{TM}}`$ is undedicable.
 * [ ] Theorem 5.9: $`A_{\mathsf{LBA}}`$ is decidable.
 * [ ] Theorem 5.10: $`E_{\mathsf{LBA}}`$ is undecidable.
 * [ ] Theorem 5.13: $`ALL_{\mathsf{CFG}}`$ is undecidable.
