@@ -2,6 +2,12 @@ Require Import Coq.Strings.Ascii.
 Require Import Coq.Lists.List.
 Require Import Coq.Strings.Ascii.
 Require Import Coq.Arith.PeanoNat.
+
+Require Coq.Classes.RelationClasses.
+Require Coq.Setoids.Setoid.
+Require Coq.Relations.Relations.
+
+
 Require Coq.omega.Omega.
 Import ListNotations.
 Require Import Lang.
@@ -26,7 +32,7 @@ Section Props.
     intros.
     inversion H; subst; clear H.
     inversion H0; subst; clear H0.
-    apply regular_def with (r:=UNION r r0).
+    apply regular_def with (r:=r_union r r0).
     split; intros.
     - inversion H0; subst; clear H0.
       + apply union_in_l.
@@ -149,15 +155,29 @@ End Pumping.
 Module Examples.
   Import Omega.
   Import RegexNotations.
+  Import LangNotations.
+  Import Lang.
+  Import Setoid.
+
+  Open Scope lang_scope.
 
   (** Ends with "a" *)
 
-  Definition L1 : language := fun w => exists w', w = w' ++ ["a"].
   Lemma l1_is_reg:
-    Regular L1.
+    Regular Examples.L1.
   Proof.
-    apply regular_def with (r:= ANY * + "a").
-    unfold Equiv; split; unfold L1; intros.
+    apply regular_def with (r:= ANY *r ++r "a").
+    unfold Examples.L1.
+    rewrite app_spec.
+    rewrite char_spec.
+    rewrite star_spec.
+    rewrite any_spec.
+    rewrite star_any_spec.
+    reflexivity.
+    (* Direct proof: *)
+    (*
+    apply app_spec.
+    unfold Equiv; split; unfold Examples.L1; intros.
     - inversion H; subst; clear H.
       exists s1.
       inversion H3; subst; clear H3.
@@ -167,6 +187,7 @@ Module Examples.
       apply accept_app with (s1:=w) (s2:=["a"]); auto.
       + apply accept_any_star.
       + auto using accept_char.
+      *)
   Qed.
 
   (** Any string of length 2 *)
@@ -175,7 +196,7 @@ Module Examples.
   Lemma l2_is_reg:
     Regular L2.
   Proof.
-    apply regular_def with (r:= ANY + ANY).
+    apply regular_def with (r:= ANY ++r ANY).
     unfold Equiv, L2; split; intros.
     - inversion H; subst.
       apply any_inv in H2.
@@ -202,34 +223,22 @@ Module Examples.
 
   (** Any string that starts with "a" and ends with "b". *)
 
-  Definition L3 : language := fun w => exists w', ["a"] ++ w' ++ ["b"] = w.
   Lemma l3_is_reg:
-    Regular L3.
+    Regular Examples.L3.
   Proof.
-    unfold L3.
-    apply regular_def with (r:="a" + ANY * + "b").
-    unfold Equiv.
-    split; intros.
-    - inversion H; subst; clear H.
-      inversion H2; subst; clear H2.
-      simpl.
-      inversion H3; subst; clear H3.
-      inversion H1; subst; clear H1.
-      simpl.
-      exists s3.
-      reflexivity.
-    - destruct H as (w', Hr).
-      subst.
-      simpl.
-      apply accept_app with (s1:=["a"] ++ w') (s2:=["b"]); auto.
-      + apply accept_app with (s1:=["a"]) (s2:=w'); auto.
-        * apply accept_char.
-        * apply accept_any_star.
-      + apply accept_char.
+    unfold Examples.L3.
+    apply regular_def with (r:="a" ++r ANY *r ++r "b").
+    repeat rewrite app_spec.
+    repeat rewrite char_spec.
+    rewrite star_spec.
+    rewrite any_spec.
+    rewrite star_any_spec.
+    rewrite Lang.app_assoc_rw.
+    reflexivity.
   Qed.
 
   Lemma l1_l3:
-    Regular (Lang.Union L1 L3).
+    Regular (Lang.Union Examples.L1 Examples.L3).
   Proof.
     apply union_regular.
     - apply l1_is_reg.
