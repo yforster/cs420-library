@@ -246,16 +246,18 @@ Module Examples.
   Qed.
 
   (** Irregular language *)
-
-  Definition L4 : language := fun x => exists n, pow1 "a" n ++ pow1 "b" n = x.
-
+(*
+   Definition L4 : language := fun x => exists n, pow1 "a" n ++ pow1 "b" n = x.
+*)
   Lemma xyz_rw:
     forall (a:ascii) b p x y z,
+    (
     length (x ++ y) <= p ->
     pow1 a p ++ pow1 b p = x ++ y ++ z ->
     exists n,
     (length (x ++ y) + n) % nat = p /\
-    pow1 a (length x + (length y + n)) ++ pow1 b (length x + length y + n) = x ++ y ++ z.
+    pow1 a (length x + (length y + n)) ++ pow1 b (length x + length y + n) = x ++ y ++ z
+    ) % list.
   Proof.
     intros.
     apply le_to_plus in H.
@@ -270,8 +272,10 @@ Module Examples.
 
   Lemma pow1_plus_xy:
     forall (a:ascii) z x n y,
+    (
     pow1 a (length x + n) ++ z = x ++ y ->
-    x = pow1 a (length x) /\ y = pow1 a n ++ z.
+    x = pow1 a (length x) /\ y = pow1 a n ++ z
+    ) % list.
   Proof.
     induction x; intros.
     - simpl in *.
@@ -287,14 +291,17 @@ Module Examples.
   Qed.
 
   Lemma l1_not_regular:
-    ~ Regular L4.
+    ~ Regular Examples.L4.
   Proof.
     apply not_regular.
     intros.
     (* We pick our word: *)
-    apply clogged_word with (w:=pow1 "a" p ++ pow1 "b" p).
-    - unfold L4.
-      eauto.
+    apply clogged_word with (w:=(pow1 "a" p ++ pow1 "b" p) % list).
+    - unfold Examples.L4.
+      exists p.
+      apply app_in.
+      + apply pow_char_in.
+      + apply pow_char_in.
     - rewrite app_length.
       rewrite pow1_length.
       omega.
@@ -303,7 +310,7 @@ Module Examples.
       (* Goal 3: *)
       exists 2.
       (* Open up the definition of membership in L1 *)
-      unfold L4.
+      unfold Examples.L4.
       (* We have that there is a word in L1 and we will reach a contradiction *)
       intros N.
       (* Break down some n *)
@@ -334,7 +341,7 @@ Module Examples.
       (* Then, we eagerly join the terms with the same base *) 
       repeat rewrite pow1_plus in N.
       (* We can now conclude that we have x = y and y = w: *)
-      apply pow1_a_b_inv_eq in N. {
+      apply pow_pow_in_inv_eq in N. {
         destruct N as (N1, N2).
         (* We replace one in the other so that there is no 'n' anymore. *) 
         subst.
@@ -342,8 +349,7 @@ Module Examples.
            it in both ends of the equality. First, we put each element in
            evidence. *)
         repeat rewrite <- plus_assoc in *.
-        apply plus_inv_eq_r in N2.
-        apply plus_inv_eq_r in N2.
+        apply plus_inv_eq_r, plus_inv_eq_r in N2.
         (* We now have to show that |y| + b = b *)
         apply plus_inv_zero_l in N2.
         (* But we know that |y| >= 1, so we reach a contradiction *)
@@ -352,9 +358,7 @@ Module Examples.
         }
         inversion N2.
       }
-      intros M.
-      inversion M.
+      (* Show that a <> b: *)
+      intros C; inversion C.
   Qed.
-
-
 End Examples.
