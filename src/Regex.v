@@ -20,12 +20,8 @@ Declare Scope regex_scope.
 (* Give also a more math-y notation *)
 
 Module RegexNotations.
-  Notation "0r" := r_void.
-  Notation "[]r" := r_nil.
-  Notation "x ++r y" := (r_app x y) (at level 50, left associativity) : regex_scope.
-  Notation "a ||r b" := (r_union a b) (at level 50, left associativity)  : regex_scope.
-  Notation "x '*r'" := (r_star x) (at level 20) : regex_scope.
-  Infix "^^r" := Util.pow (right associativity, at level 20) : regex_scope.
+  Notation "x ';;' y" := (r_app x y) (at level 40, left associativity) : regex_scope.
+  Notation "a '||' b" := (r_union a b) (at level 50, left associativity)  : regex_scope.
 End RegexNotations.
 
 Import List.ListNotations.
@@ -51,28 +47,28 @@ Inductive Accept : regex -> list ascii -> Prop :=
     s2 \in re2 ->
     s3 = s1 ++ s2 ->
     (*--------------------*)
-    s3 \in re1 ++r re2
+    s3 \in re1 ;; re2
 
   | accept_union_l: forall s1 re1 re2,
     s1 \in re1 ->
     (*----------------*)
-    s1 \in re1 ||r re2
+    s1 \in re1 || re2
 
   | accept_union_r: forall re1 s2 re2,
     s2 \in re2 ->
    (*-------------------*)
-    s2 \in re1 ||r re2
+    s2 \in re1 || re2
 
   | accept_star_nil: forall re,
-    [] \in re *r
+    [] \in r_star re
 
   | accept_star_cons_neq: forall s1 s2 s3 re,
     s1 \in re ->
-    s2 \in re *r ->
+    s2 \in r_star re ->
     s3 = s1 ++ s2 ->
     s1 <> [] ->
     (*-----------------*)
-    s3 \in re *r
+    s3 \in r_star re
 
   where "s \in re" := (Accept re s).
 
@@ -87,7 +83,7 @@ Proof.
   apply accept_char.
 Qed.
 
-Goal ["a"; "b"] \in "a" ++r "b".
+Goal ["a"; "b"] \in "a" ;; "b".
 Proof.
   apply accept_app with (s1:=["a"]) (s2:=["b"]).
   + apply accept_char.
@@ -98,9 +94,9 @@ Qed.
 Lemma accept_star_cons:
   forall s1 s2 s3 re,
   s1 \in re ->
-  s2 \in re *r ->
+  s2 \in r_star re ->
   s3 = s1 ++ s2 ->
-  s3 \in re *r.
+  s3 \in r_star re.
 Proof.
   intros.
   destruct s1; simpl in *; subst. {
@@ -113,7 +109,7 @@ Qed.
 Lemma accept_star_eq:
   forall s re,
   s \in re ->
-  s \in re *r.
+  s \in r_star re.
 Proof.
   intros s re H.
   destruct s. {
@@ -126,22 +122,13 @@ Qed.
 Lemma accept_cons:
   forall s r c,
   s \in r ->
-  c :: s \in r_char c ++r r.
+  c :: s \in r_char c ;; r.
 Proof.
   intros.
   apply accept_app with (s1:=[c]) (s2:=s); auto using accept_char.
 Qed.
 
 Section Union.
-  Lemma union_spec:
-    forall r1 r2,
-    Equiv (Accept (r1 ||r r2)) (Lang.Union (Accept r1) (Accept r2)).
-  Proof.
-    unfold Equiv; split; intros.
-    - inversion H; subst; clear H; auto using union_in_l, union_in_r.
-    - apply union_in_inv in H.
-      destruct H; auto using accept_union_l, accept_union_r.
-  Qed.
   (** [regex] expects union to be a binary-operation. Let us define
       union in terms of a list of regular expressions, rather than just
       binary. *)
@@ -188,24 +175,31 @@ Section Union.
   Qed.
 End Union.
 
-Section App.
-  Lemma app_spec:
+Section Rewrite.
+  Lemma r_union_rw:
     forall r1 r2,
-    Equiv (Accept (r1 ++r r2)) (Lang.App (Accept r1) (Accept r2)).
+    Equiv (Accept (r1 || r2)) (Lang.Union (Accept r1) (Accept r2)).
+  Proof.
+    unfold Equiv; split; intros.
+    - inversion H; subst; clear H; auto using union_in_l, union_in_r.
+    - apply union_in_inv in H.
+      destruct H; auto using accept_union_l, accept_union_r.
+  Qed.
+
+  Lemma r_app_rw:
+    forall r1 r2,
+    Equiv (Accept (r1 ;; r2)) (Lang.App (Accept r1) (Accept r2)).
   Proof.
     unfold Equiv; split; intros.
     - inversion H; subst; clear H.
-      auto using app_in.
+      auto using app_in_eq.
     - apply app_in_inv in H.
       destruct H as (w1, (w2, (H1, (H2, H3)))).
       subst.
       eauto using accept_app.
   Qed.
 
-End App.
-
-Section Char.
-  Lemma char_spec:
+  Lemma r_char_rw:
     forall c,
     Equiv (Accept (r_char c)) (Lang.Char c).
   Proof.
@@ -216,19 +210,25 @@ Section Char.
       subst.
       apply accept_char.
   Qed.
-End Char.
 
-Section Null.
-  Lemma null:
+  Lemma r_nil_rw:
+    Equiv (Accept r_nil) Nil.
+  Proof.
+    split; intros.
+    - inversion H; subst.
+      apply nil_in.
+    - apply nil_in_inv in H.
+      subst.
+      apply accept_nil.
+  Qed.
+
+  Lemma r_void_rw:
     Equiv (Accept r_void) Void.
   Proof.
     split; intros.
     - inversion H.
     - inversion H.
   Qed.
-End Null.
-
-Section Star.
 
   Lemma star_inv_cons:
     forall r c w, 
@@ -247,7 +247,7 @@ Section Star.
 
   Lemma empty_str_star_inv:
     forall s,
-    s \in []r *r ->
+    s \in r_star r_nil ->
     s = [].
   Proof.
     intros.
@@ -260,7 +260,7 @@ Section Star.
   Fixpoint r_pow r n :=
     match n with
     | 0 => r_nil
-    | S n => r ++r r_pow r n  
+    | S n => r ;; r_pow r n  
     end.
 
   Lemma r_pow_succ:
@@ -279,11 +279,11 @@ Section Star.
 
   Lemma r_star_to_pow:
     forall r s,
-    Accept (r *r) s ->
+    Accept (r_star r) s ->
     exists n, Accept (r_pow r n) s.
   Proof.
     intros.
-    remember (r *r) as r1.
+    remember (r_star r) as r1.
     generalize dependent r.
     induction H; intros; inversion Heqr1; subst; clear Heqr1.
     - exists 0.
@@ -306,9 +306,9 @@ Section Star.
       eapply pow_cons; eauto.
   Qed.
 
-  Lemma star_spec:
+  Lemma r_star_rw:
     forall r,
-    Equiv (Accept (r *r)) (Lang.Star (Accept r)).
+    Equiv (Accept (r_star r)) (Lang.Star (Accept r)).
   Proof.
     split; intros.
     - apply r_star_to_pow in H.
@@ -321,7 +321,8 @@ Section Star.
       }
       eapply accept_star_cons; eauto.
   Qed.
-End Star.
+
+End Rewrite.
 
 Section Sigma.
   (** We now define the set of all characters, know in the literature as 
@@ -361,16 +362,16 @@ Section Sigma.
   Qed.
 
   (** Finally we are ready to define \Sigma *)
-  Definition ANY : regex := union all_chars.
+  Definition r_any : regex := union all_chars.
 
 
   (** Show that any single character is accepted by ANY *)
   Lemma accept_any:
     forall a,
-    [a] \in ANY.
+    [a] \in r_any.
   Proof.
     intros.
-    unfold ANY.
+    unfold r_any.
     apply in_union with (a:=r_char a); auto using in_all_char, accept_char.
   Qed.
 
@@ -379,7 +380,7 @@ Section Sigma.
   Lemma accept_any_cons:
     forall a r s,
     s \in r ->
-    a :: s \in ANY ++r r.
+    a :: s \in r_any ;; r.
   Proof.
     intros.
     apply accept_app with (s1:=[a]) (s2:=s); auto using accept_any.
@@ -387,13 +388,13 @@ Section Sigma.
 
   (** And the converse also holds, any string matched by ANY must be a
       character. *)
-  Lemma any_inv:
+  Lemma accept_any_inv:
     forall s,
-    s \in ANY ->
+    s \in r_any ->
     exists c, s = [c].
   Proof.
     intros.
-    unfold ANY in *.
+    unfold r_any in *.
     apply union_inv in H.
     destruct H as (r, (Hi, Hs)).
     apply all_chars_inv in Hi.
@@ -405,11 +406,11 @@ Section Sigma.
 
   (** Any is a regular expression *)
 
-  Lemma any_spec:
-    Equiv (Accept ANY) Any.
+  Lemma r_any_rw:
+    Equiv (Accept r_any) Any.
   Proof.
     split; intros.
-    - apply any_inv in H.
+    - apply accept_any_inv in H.
       destruct H as (c, ?).
       subst.
       apply any_in.
@@ -423,17 +424,17 @@ Section Sigma.
 
   Lemma accept_any_star:
     forall w,
-    w \in ANY *r.
+    w \in r_star r_any.
   Proof.
     intros.
     (* Same as w in Star (Accept ANY) *)
-    apply star_spec.
+    apply r_star_rw.
     (* Show that this is the same as [Star Any] *)
     apply star_equiv_in with (L1:=Any).
     - apply equiv_sym.
-      apply any_spec.
+      apply r_any_rw.
     - (* Same as [All] *)
-      apply star_any_spec.
+      apply star_any_rw.
       (* All strings are in [All] *)
       auto using all_in.
   Qed.
@@ -479,8 +480,8 @@ Section Pumping.
   Lemma pow_pump:
     forall m s1 s2 re,
     s1 \in re ->
-    s2 \in re *r ->
-    pow s1 m ++ s2 \in re *r.
+    s2 \in r_star re ->
+    pow s1 m ++ s2 \in r_star re.
   Proof.
     induction m; intros; simpl. {
       assumption.
@@ -503,7 +504,7 @@ Section Pumping.
     forall re1 re2 s1 s2,
     RexPump re1 s1 ->
     s2 \in re2 ->
-    RexPump (re1 ++r re2) (s1 ++ s2).
+    RexPump (re1 ;; re2) (s1 ++ s2).
   Proof.
     intros.
     inversion H; subst; clear H.
@@ -526,7 +527,7 @@ Section Pumping.
     RexPump re2 s2 ->
     s1 \in re1 ->
     length s1 <= pumping_constant re1 ->
-    RexPump (re1 ++r re2) (s1 ++ s2).
+    RexPump (re1 ;; re2) (s1 ++ s2).
   Proof.
     intros.
     inversion H; subst; clear H.
@@ -547,7 +548,7 @@ Section Pumping.
   Lemma rex_pump_union_l:
     forall re1 re2 s1,
     RexPump re1 s1 ->
-    RexPump (re1 ||r re2) s1.
+    RexPump (re1 || re2) s1.
   Proof.
     intros.
     inversion H; subst; clear H.
@@ -565,7 +566,7 @@ Section Pumping.
   Lemma rex_pump_union_r:
     forall re1 re2 s2,
     RexPump re2 s2 ->
-    RexPump (re1 ||r re2) s2.
+    RexPump (re1 || re2) s2.
   Proof.
     intros.
     inversion H; subst; clear H.
@@ -583,7 +584,7 @@ Section Pumping.
   Lemma rex_pump_star_1:
     forall s1 s2 re,
     s1 \in re ->
-    s2 \in re *r ->
+    s2 \in r_star re ->
     s1 <> [] ->
     length s1 <= pumping_constant re ->
     RexPump (r_star re) (s1 ++ s2).
@@ -675,3 +676,6 @@ Section Pumping.
   Qed.
 
 End Pumping.
+
+
+

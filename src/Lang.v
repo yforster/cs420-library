@@ -119,7 +119,7 @@ Section Defs.
   (** Show that if [w1] is in [L1] and [w2] is in [L2], then [w1 ++ w2] is in
       [App L1 L2]. *)
 
-  Lemma app_in:
+  Lemma app_in_eq:
     forall (L1 L2:language) w1 w2,
     L1 w1 ->
     L2 w2 ->
@@ -131,7 +131,7 @@ Section Defs.
 
   (** Auxiliary lemma that lets us use app when the string is not directly in
       the form of [w1 ++ w2]. *)
-  Lemma app_in_eq:
+  Lemma app_in:
     forall (L1 L2:language) w1 w2 w3,
     L1 w1 ->
     L2 w2 ->
@@ -140,7 +140,7 @@ Section Defs.
   Proof.
     intros.
     subst.
-    apply app_in; auto.
+    apply app_in_eq; auto.
   Qed.
 
   Lemma app_in_inv:
@@ -158,7 +158,7 @@ Section Defs.
     App (Char c) L (c :: w).
   Proof.
     intros.
-    apply app_in_eq with (w1:=[c]) (w2:=w).
+    apply app_in with (w1:=[c]) (w2:=w).
     + apply char_in.
     + assumption.
     + reflexivity.
@@ -170,7 +170,7 @@ Section Defs.
     App All L (w1 ++ w2).
   Proof.
     intros.
-    apply app_in_eq with (w1:=w1) (w2:=w2).
+    apply app_in with (w1:=w1) (w2:=w2).
     + apply all_in.
     + assumption.
     + reflexivity.
@@ -182,7 +182,7 @@ Section Defs.
     App L All (w1 ++ w2).
   Proof.
     intros.
-    apply app_in_eq with (w1:=w1) (w2:=w2).
+    apply app_in with (w1:=w1) (w2:=w2).
     + assumption.
     + apply all_in.
     + reflexivity.
@@ -291,7 +291,7 @@ Section Defs.
   Proof.
     intros.
     exists 1.
-    apply pow_in_eq; auto.
+    apply    pow_in_eq; auto.
   Qed.
 
   Lemma pow_to_star:
@@ -420,7 +420,7 @@ Section Defs.
     apply app_in_inv in H1.
     destruct H1 as (w1, (w2, (?, (Ha, Hb)))).
     subst.
-    apply app_in.
+    apply app_in_eq.
     + apply H; assumption.
     + apply H0. assumption.
   Qed.
@@ -488,15 +488,41 @@ Section Defs.
   Qed.
 
   Global Instance star_equiv_proper: Proper (Equiv ==> Equiv) Star.
+  Proof.
     unfold Proper.
     unfold respectful.
     apply star_equiv.
   Qed.
 
+  Global Instance pow_equiv_proper (n:nat): Proper (Equiv ==> Equiv) (fun x => Pow x n).
+  Proof.
+    unfold Proper.
+    unfold respectful.
+    intros.
+    apply pow_equiv.
+    assumption.
+  Qed.
+
   End equiv_proper.
   (** Relate [All] with [Star Any]. *)
 
-  Lemma app_assoc_in:
+  Lemma app_assoc_in_1:
+    forall L1 L2 L3 s,
+    App L1 (App L2 L3) s ->
+    App (App L1 L2) L3 s.
+  Proof.
+    intros.
+    apply app_in_inv in H.
+    destruct H as (w1, (w2, (?, (Ha, Hb)))).
+    subst.
+    apply app_in_inv in Hb.
+    destruct Hb as (w3, (w4, (?, (Hc, Hd)))).
+    subst.
+    rewrite app_assoc.
+    auto using app_in_eq.
+  Qed.
+
+  Lemma app_assoc_in_2:
     forall L1 L2 L3 s,
     App (App L1 L2) L3 s ->
     App L1 (App L2 L3) s.
@@ -509,30 +535,72 @@ Section Defs.
     destruct Ha as (w3, (w4, (?, (Ha, Hc)))).
     subst.
     rewrite <- app_assoc.
-    auto using app_in.
+    auto using app_in_eq.
   Qed.
 
   Lemma app_assoc_rw:
     forall L1 L2 L3,
-    Equiv (App (App L1 L2) L3) (App L1 (App L2 L3)).
+    Equiv (App L1 (App L2 L3)) (App (App L1 L2) L3).
   Proof.
-    split; intros;
-      apply app_in_inv in H;
-      destruct H as (w1, (w2, (?, (Ha, Hb))));
-      subst.
-    - apply app_in_inv in Ha.
-      destruct Ha as (w3, (w4, (?, (Ha, Hc)))).
-      subst.
-      rewrite <- app_assoc.
-      auto using app_in.
-    - apply app_in_inv in Hb.
-      destruct Hb as (w3, (w4, (?, (Hb, Hc)))).
-      subst.
-      rewrite app_assoc.
-      auto using app_in.
+    intros.
+    split; intros.
+    - apply app_assoc_in_1.
+      assumption.
+    - apply app_assoc_in_2.
+      assumption.
   Qed.
 
-  Lemma star_any_spec:
+  Lemma union_assoc_in_1:
+    forall L1 L2 L3 s,
+    Union L1 (Union L2 L3) s ->
+    Union (Union L1 L2) L3 s.
+  Proof.
+    intros.
+    destruct H as [H1|[H2|H3]].
+    - left.
+      left.
+      assumption.
+    - left.
+      right.
+      assumption.
+    - right.
+      assumption.
+  Qed.
+
+  Lemma union_assoc_in_2:
+    forall L1 L2 L3 s,
+    Union (Union L1 L2) L3 s ->
+    Union L1 (Union L2 L3) s.
+  Proof.
+    intros.
+    destruct H as [[H|H]|H].
+    - left; assumption.
+    - right. left. assumption.
+    - right.
+      right.
+      assumption.
+  Qed.
+
+  Lemma union_assoc_rw:
+    forall L1 L2 L3,
+    Equiv (Union L1 (Union L2 L3)) (Union (Union L1 L2) L3).
+  Proof.
+    intros.
+    split; intros.
+    - apply union_assoc_in_1.
+      assumption.
+    - apply union_assoc_in_2.
+      assumption.
+  Qed.
+
+  Lemma union_sym_rw:
+    forall L1 L2,
+    Equiv (Union L1 L2) (Union L2 L1).
+  Proof.
+    split; intros; destruct H; try (left; assumption); try (right; assumption).
+  Qed.
+
+  Lemma star_any_rw:
     Equiv (Star Any) All.
   Proof.
     split; intros.
@@ -632,19 +700,365 @@ Section Defs.
   Qed.
 End Defs.
 
+
 Declare Scope lang_scope.
 
 Module LangNotations.
   Import Ascii.
   Notation "{}" := Void : lang_scope.
-  Notation "[]" := Nil : lang_scope.
-  Infix "++" := App (right associativity, at level 60) : lang_scope.
-  Notation "a || b" := (Union a b) (at level 50, left associativity)  : lang_scope.
+  Infix ">>" := App (at level 40, left associativity) : lang_scope.
+  Notation "a 'U' b" := (Union a b) (at level 50, left associativity)  : lang_scope.
   Notation "x '*'" := (Star x) (at level 20) : lang_scope.
-  Infix "^^" := Pow (right associativity, at level 20) : lang_scope.
-  Infix "==" := Equiv (left associativity, at level 40) : lang_scope.
+  Infix "^^" := Pow (right associativity, at level 35) : lang_scope.
+  Infix "==" := Equiv (at level 95, no associativity) : lang_scope.
   Coercion Char: ascii >-> language.
 End LangNotations.
+
+
+
+Section Rewrites.
+  Import LangNotations.
+  Import List.
+  Import ListNotations.
+  Open Scope lang_scope.
+
+  Lemma app_r_void_rw:
+    forall (L:language),
+    (L >> {}) == {}.
+  Proof.
+    split; intros.
+    - apply app_in_inv in H.
+      destruct H as (w1, (w2, (?, (Ha, Hb)))).
+      apply void_not_in in Hb.
+      contradiction.
+    - apply void_not_in in H.
+      contradiction.
+  Qed.
+
+  Lemma app_l_void_rw:
+    forall (L:language),
+    ({} >> L) == {}.
+  Proof.
+    split; intros.
+    - apply app_in_inv in H.
+      destruct H as (w1, (w2, (?, (Ha,Hb)))).
+      apply void_not_in in Ha.
+      contradiction.
+    - apply void_not_in in H.
+      contradiction.
+  Qed.
+
+  Lemma app_l_nil_rw:
+    forall (L:language),
+    (Nil >> L) == L.
+  Proof.
+    intros.
+    split; intros.
+    - apply app_in_inv in H.
+      destruct H as (w1, (w2, (?, (Ha, Hb)))).
+      subst.
+      apply nil_in_inv in Ha.
+      subst.
+      assumption.
+    - apply app_in_eq with (w1:=[]) (w2:=s).
+      + apply nil_in.
+      + assumption.
+  Qed.
+
+  Lemma app_r_nil_rw:
+    forall (L:language),
+    (L >> Nil) == L.
+  Proof.
+    split; intros.
+    - apply app_in_inv in H.
+      destruct H as (w1, (w2, (?, (Ha, Hb)))).
+      subst.
+      apply nil_in_inv in Hb.
+      subst.
+      rewrite app_nil_r.
+      assumption.
+    - apply app_in with (w1:=s) (w2:=[]).
+      + assumption.
+      + apply nil_in.
+      + rewrite app_nil_r.
+        reflexivity.
+  Qed.
+
+  Lemma union_r_void_rw:
+    forall (L:language),
+    (L U {}) == L.
+  Proof.
+    split; intros.
+    + apply union_in_inv in H.
+      destruct H; auto.
+      apply void_not_in in H.
+      contradiction.
+    + left.
+      assumption. 
+  Qed.
+
+  Lemma union_l_void_rw:
+    forall (L:language),
+    ({} U L) == L.
+  Proof.
+    split; intros.
+    - destruct H. {
+        apply void_not_in in H.
+        contradiction.
+      }
+      assumption.
+    - right.
+      assumption.
+  Qed.
+
+  Lemma pow_add:
+    forall L n1 n2 (w1 w2:word),
+    (L ^^ n1) w1 ->
+    (L ^^ n2) w2 ->
+    (L ^^ (n1 + n2)) (w1 ++ w2) % list.
+  Proof.
+    induction n1; intros.
+    - inversion H; subst; clear H; simpl.
+      assumption.
+    - inversion H; subst; clear H.
+      simpl.
+      assert (Hx := IHn1 _ _ _ H2 H0).
+      rewrite <- app_assoc.
+      eapply pow_cons; eauto.
+  Qed.
+
+  Lemma pow_add_inv:
+    forall L n1 n2 (w:word),
+    (L ^^ (n1 + n2)) w ->
+    exists w1 w2, w = w1 ++ w2 /\ (L ^^ n1) w1 /\ (L ^^ n2) w2.
+  Proof.
+    induction n1; simpl; intros. {
+      exists nil, w.
+      intuition.
+      apply pow_nil.
+    }
+    inversion H; subst; clear H.
+    assert (Hx := H1).
+    apply IHn1 in H1.
+    destruct H1 as (w3, (w4, (?, (Ha, Hb)))).
+    subst.
+    exists (w1 ++ w3) % list, w4.
+    rewrite app_assoc.
+    intuition.
+    eauto using pow_cons.
+  Qed.
+
+  Lemma app_star_rw:
+    forall (L:language),
+    (L * >> L * ) == (L  *).
+  Proof.
+    split; intros.
+    - apply app_in_inv in H.
+      destruct H as (w1, (w2, (?, (Ha, Hb)))).
+      subst.
+      destruct Ha as (n1, Ha).
+      destruct Hb as (n2, Hb).
+      exists (n1 + n2).
+      apply pow_add; auto.
+    - destruct H as (n, H).
+      apply app_in_eq with (w1:=nil) (w2:=s).
+      + apply star_in_nil.
+      + exists n.
+        assumption.
+  Qed.
+
+  Lemma star_star_rw:
+    forall (L:language),
+    (L * ) * == L *.
+  Proof.
+    intros.
+    split; intros.
+    - destruct H as (n, Hn).
+      generalize dependent s.
+      induction n; intros. {
+        inversion Hn; subst; clear Hn.
+        apply star_in_nil.
+      }
+      inversion Hn; subst; clear Hn.
+      apply IHn in H0.
+      apply app_star_rw.
+      auto using app_in_eq.
+    - destruct H as (n, H).
+      exists 1.
+      apply pow_cons with (w1:=s) (w2:=nil).
+      + apply pow_nil.
+      + exists n.
+        assumption.
+      + auto with *.
+  Qed.
+
+  Lemma nil_pow_in_inv:
+    forall n s,
+    (Nil ^^ n) s ->
+    s = nil.
+  Proof.
+    induction n; intros.
+    - inversion H; subst; clear H.
+      reflexivity.
+    - inversion H; subst; clear H.
+      apply nil_in_inv in H2.
+      subst.
+      apply IHn in H1.
+      subst.
+      reflexivity.
+  Qed.
+
+  Lemma star_nil_rw:
+    Nil * == Nil.
+  Proof.
+    split; intros.
+    - destruct H as (n, H).
+      apply nil_pow_in_inv in H.
+      subst.
+      apply nil_in.
+    - apply nil_in_inv in H.
+      subst.
+      apply star_in_nil.
+  Qed.
+
+  Lemma void_pow_in_inv:
+    forall n s,
+    ({} ^^ n) s -> s = [].
+  Proof.
+    intros.
+    induction H.
+    - reflexivity.
+    - subst.
+      apply void_not_in in H0.
+      contradiction.
+  Qed.
+
+  Lemma star_void_rw:
+    {} * == Nil.
+  Proof.
+    split; intros.
+    - destruct H as (n, H).
+      apply void_pow_in_inv in H.
+      subst.
+      apply nil_in.
+    - apply nil_in_inv in H.
+      subst.
+      exists 0.
+      apply pow_nil.
+  Qed.
+
+  Lemma app_union_distr_l:
+    forall L1 L2 L3,
+    L1 >> L3 U L2 >> L3 == (L1 U L2) >> L3.
+  Proof.
+    split; intros.
+    - destruct H as [H|H]; apply app_in_inv in H; destruct H as (w1, (w2, (?, (Ha, Hb)))); subst;
+      apply app_in_eq; auto.
+      + left.
+        assumption.
+      + right.
+        assumption.
+    - apply app_in_inv in H.
+      destruct H as (w1, (w2, (?, (Ha, Hb)))); subst.
+      destruct Ha.
+      + left.
+        auto using app_in_eq.
+      + right.
+        auto using app_in_eq.
+  Qed.
+
+  Lemma pow_zero_rw:
+    forall L,
+    L ^^ 0 == Nil.
+  Proof.
+    split; intros.
+    - inversion H; subst; clear H.
+      apply nil_in.
+    - apply nil_in_inv in H.
+      subst.
+      apply pow_nil.
+  Qed.
+
+  Lemma pow_succ_equiv:
+    forall n L1 L2, 
+    L1 == L2 ->
+    L1 ^^ n == L2 ^^ n ->
+    L1 ^^ S n == L2 ^^ S n.
+  Proof.
+    split; intros.
+    - inversion H1; subst; clear H1.
+      apply H0 in H3.
+      apply pow_cons with (w1:=w1) (w2:=w2); auto.
+      apply H in H4.
+      assumption.
+    - inversion H1; subst; clear H1.
+      apply H0 in H3.
+      apply pow_cons with (w1:=w1) (w2:=w2); auto.
+      apply H in H4.
+      assumption.
+  Qed.
+
+  Lemma pow_cons_eq:
+    forall (L:language) w1 w2 n,
+    L w1 ->
+    (L ^^ n) w2 ->
+    (L ^^ S n) (w1 ++ w2).
+  Proof.
+    intros.
+    apply pow_cons with (w1:=w1) (w2:=w2); auto.
+  Qed.
+
+  Lemma star_cons:
+    forall (L:language) w1 w2 w3,
+    L w1 ->
+    (L *) w2 ->
+    w3 = w1 ++ w2 ->
+    (L *) w3.
+  Proof.
+    intros.
+    destruct H0 as (n, Hp).
+    exists (S n).
+    subst.
+    apply pow_cons_eq; auto.
+  Qed.
+
+  Lemma star_cons_eq:
+    forall (L:language) w1 w2,
+    L w1 ->
+    (L *) w2 ->
+    (L *) (w1 ++ w2).
+  Proof.
+    intros.
+    apply star_cons with (w1:=w1) (w2:=w2); auto.
+  Qed.
+
+  (** A nil inside a star can be elided. *)
+
+  Lemma star_union_nil_rw:
+    forall L1,
+    (Nil U L1) * == L1 *.
+  Proof.
+    intros.
+    split; intros.
+    - destruct H as (n, H).
+      induction H.
+      + apply star_in_nil.
+      + subst.
+        destruct H0.
+        * inversion H0; subst; clear H0.
+          simpl.
+          assumption.
+        * apply star_cons_eq; auto.
+    - destruct H as (n, H).
+      induction H.
+      + apply star_in_nil.
+      + subst.
+        apply star_cons_eq; auto.
+        right.
+        assumption.
+  Qed.
+
+End Rewrites.
 
 Module Examples.
   Import Ascii.
@@ -656,12 +1070,12 @@ Module Examples.
   Open Scope char_scope. (* Ensure by default we are representing characters. *)
 
   (** Any string that ends with "a" *)
-  Definition L1 : language := All ++ "a".
+  Definition L1 : language := All >> "a".
 
   (** Show that the notation above is equivalent to writing a more direct, yet
      more verbose notation: *)
   Lemma l1_spec:
-    L1 == fun w => exists w', (w = w' ++ ["a"]) % list.
+    L1 == fun w => exists w', w = w' ++ ["a"].
   Proof.
     unfold L1; split; intros.
     - apply app_in_inv in H.
@@ -673,7 +1087,7 @@ Module Examples.
       reflexivity.
     - destruct H as (w, ?).
       subst.
-      apply app_in.
+      apply app_in_eq.
       + apply all_in.
       + apply char_in.
   Qed.
@@ -690,14 +1104,14 @@ Module Examples.
      
       To work around the issue use nil to represent the empty string.
      *)
-    apply app_in_eq with (w1:=nil) (w2:=["a"]). (* When using lists use nil to represent  *)
+    apply app_in with (w1:=nil) (w2:=["a"]). (* When using lists use nil to represent  *)
     + apply all_in.
     + apply char_in.
     + auto.
   Qed.
 
   (** Show that the empty string is not in L1. *)
-  Goal ~ L1 nil.
+  Goal ~ L1 [].
   Proof.
     unfold L1; intros N.
     apply app_in_inv in N.
@@ -718,7 +1132,7 @@ Module Examples.
   Goal L1 ["b"; "b"; "b"; "a"].
   Proof.
     unfold L1.
-    apply app_in_eq with (w1:=["b"; "b"; "b"]) (w2:=["a"]).
+    apply app_in with (w1:=["b"; "b"; "b"]) (w2:=["a"]).
     - apply all_in.
     - apply char_in.
     - reflexivity.
@@ -733,15 +1147,15 @@ Module Examples.
     reflexivity.
   Qed.
 
-  Definition L3 : language := "a" ++ All ++ "b".
+  Definition L3 : language := "a" >> All >> "b".
 
   Lemma l3_spec:
-    L3 == fun w => exists w', (["a"] ++ w' ++ ["b"] = w) % list.
+    L3 == fun w => exists w', ["a"] ++ w' ++ ["b"] = w.
   Proof.
     unfold L3; split; intros.
-    - apply app_l_char_in_inv in H.
+    - apply app_r_char_in_inv in H.
       destruct H as (w1, (?, Hw)).
-      apply app_r_char_in_inv in Hw.
+      apply app_l_char_in_inv in Hw.
       destruct Hw as (w2, (?, _)).
       subst.
       simpl.
@@ -750,6 +1164,7 @@ Module Examples.
     - destruct H as (w, ?).
       subst.
       simpl.
+      apply app_assoc_in_1.
       apply app_l_char_in.
       apply app_l_all_in.
       apply char_in.
@@ -757,12 +1172,12 @@ Module Examples.
 
   (** We define the language in terms of the Pow and App combinators. *)
 
-  Definition L4 := fun w => exists n, ("a" ^^ n ++ "b" ^^ n) w.
+  Definition L4 := fun w => exists n, ("a" ^^ n >> "b" ^^ n) w.
 
   (** We then show that this correspond to our expectation of when not using
       combinators: *)
   Lemma l4_spec:
-    L4 == fun x => exists n, (pow1 "a" n ++ pow1 "b" n = x) % list.
+    L4 == fun x => exists n, pow1 "a" n ++ pow1 "b" n = x.
   Proof.
     unfold L4; split; intros.
     - destruct H as (n, Hw).
@@ -777,17 +1192,17 @@ Module Examples.
     - destruct H as (n, H).
       subst.
       exists n.
-      apply app_in.
+      apply app_in_eq.
       + apply pow_char_in.
       + apply pow_char_in.
   Qed.
 
   (** L4 accepts the empty string. *)
-  Goal L4 nil.
+  Goal L4 [].
   Proof.
     unfold L4.
     exists 0.
-    apply app_in_eq with (w1:=nil) (w2:=nil).
+    apply app_in with (w1:=[]) (w2:=[]).
     + apply pow_nil.
     + apply pow_nil.
     + reflexivity.
@@ -797,7 +1212,7 @@ Module Examples.
   Goal L4 ["a"; "a"; "b"; "b"].
   Proof.
     exists 2.
-    apply app_in_eq with (w1:=["a"; "a"]) (w2:=["b"; "b"]).
+    apply app_in with (w1:=["a"; "a"]) (w2:=["b"; "b"]).
     + apply pow_char_cons, pow_char_cons.
       apply pow_nil.
     + apply pow_char_cons, pow_char_cons.
@@ -853,4 +1268,5 @@ Module Examples.
        contradiction. *)
     inversion Hs.
   Qed.
+
 End Examples.

@@ -166,13 +166,13 @@ Module Examples.
   Lemma l1_is_reg:
     Regular Examples.L1.
   Proof.
-    apply regular_def with (r:= ANY *r ++r "a").
+    apply regular_def with (r:= r_star r_any ;; "a").
     unfold Examples.L1.
-    rewrite app_spec.
-    rewrite char_spec.
-    rewrite star_spec.
-    rewrite any_spec.
-    rewrite star_any_spec.
+    rewrite r_app_rw.
+    rewrite r_char_rw.
+    rewrite r_star_rw.
+    rewrite r_any_rw.
+    rewrite star_any_rw.
     reflexivity.
     (* Direct proof: *)
     (*
@@ -192,15 +192,14 @@ Module Examples.
 
   (** Any string of length 2 *)
 
-  Definition L2 : language := fun w => length w = 2.
   Lemma l2_is_reg:
-    Regular L2.
+    Regular Examples.L2.
   Proof.
-    apply regular_def with (r:= ANY ++r ANY).
-    unfold Equiv, L2; split; intros.
+    apply regular_def with (r:= r_any ;; r_any).
+    unfold Equiv, Examples.L2; split; intros.
     - inversion H; subst.
-      apply any_inv in H2.
-      apply any_inv in H3.
+      apply accept_any_inv in H2.
+      apply accept_any_inv in H3.
       destruct H2 as (c1, ?).
       destruct H3 as (c2, ?).
       subst.
@@ -222,18 +221,16 @@ Module Examples.
   Qed.
 
   (** Any string that starts with "a" and ends with "b". *)
-
   Lemma l3_is_reg:
     Regular Examples.L3.
   Proof.
     unfold Examples.L3.
-    apply regular_def with (r:="a" ++r ANY *r ++r "b").
-    repeat rewrite app_spec.
-    repeat rewrite char_spec.
-    rewrite star_spec.
-    rewrite any_spec.
-    rewrite star_any_spec.
-    rewrite Lang.app_assoc_rw.
+    apply regular_def with (r:="a" ;; r_star r_any ;; "b").
+    repeat rewrite r_app_rw.
+    rewrite r_star_rw.
+    rewrite r_any_rw.
+    repeat rewrite r_char_rw.
+    rewrite star_any_rw.
     reflexivity.
   Qed.
 
@@ -246,17 +243,15 @@ Module Examples.
   Qed.
 
   (** Irregular language *)
-(*
-   Definition L4 : language := fun x => exists n, pow1 "a" n ++ pow1 "b" n = x.
-*)
+
   Lemma xyz_rw:
     forall (a:ascii) b p x y z,
     (
-    length (x ++ y) <= p ->
-    pow1 a p ++ pow1 b p = x ++ y ++ z ->
-    exists n,
-    (length (x ++ y) + n) % nat = p /\
-    pow1 a (length x + (length y + n)) ++ pow1 b (length x + length y + n) = x ++ y ++ z
+      length (x ++ y) <= p ->
+      pow1 a p ++ pow1 b p = x ++ y ++ z ->
+      exists n,
+      (length (x ++ y) + n) % nat = p /\
+      pow1 a (length x + (length y + n)) ++ pow1 b (length x + length y + n) = x ++ y ++ z
     ) % list.
   Proof.
     intros.
@@ -272,10 +267,8 @@ Module Examples.
 
   Lemma pow1_plus_xy:
     forall (a:ascii) z x n y,
-    (
     pow1 a (length x + n) ++ z = x ++ y ->
-    x = pow1 a (length x) /\ y = pow1 a n ++ z
-    ) % list.
+    x = pow1 a (length x) /\ y = pow1 a n ++ z.
   Proof.
     induction x; intros.
     - simpl in *.
@@ -299,7 +292,8 @@ Module Examples.
     apply clogged_word with (w:=(pow1 "a" p ++ pow1 "b" p) % list).
     - unfold Examples.L4.
       exists p.
-      apply app_in.
+      (* Split app *)
+      apply app_in_eq.
       + apply pow_char_in.
       + apply pow_char_in.
     - rewrite app_length.
@@ -362,3 +356,4 @@ Module Examples.
       intros C; inversion C.
   Qed.
 End Examples.
+

@@ -1,0 +1,8 @@
+*.vo
+*.glob
+*.aux
+\#*
+*.crashcoqide
+/.coqdeps.d
+/Makefile
+/Makefile.conf

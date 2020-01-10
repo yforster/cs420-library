@@ -252,3 +252,22 @@ Qed.
     apply in_count.
     auto using nat_ascii_bounded.
   Qed.
+
+  Fixpoint occurrences c l :=
+  match l with
+  | [] => 0
+  | x :: l =>
+    let n := occurrences c l in
+    if Ascii.eqb x c then S n else n
+  end.
+
+  Lemma occurrences_pow1:
+    forall c n,
+    occurrences c (pow1 c n) = n.
+  Proof.
+    induction n; intros; simpl.
+    - reflexivity.
+    - rewrite Ascii.eqb_refl.
+      rewrite IHn.
+      reflexivity.
+  Qed.
