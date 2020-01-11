@@ -1,19 +1,7 @@
 ---
-image: ocaml/opam2:debian-10-ocaml-4.09
-
-variables:
-  OPAMYES: "yes"
-  COQ_VERSION: 8.10.2
-
-cache:
-  key: ${COQ_VERSION}
-  paths:
-    - ${HOME}/.opam
+image: coqorg/coq:8.10
 
 before_script:
-#  - opam repo add opam https://opam.ocaml.org
-  - opam depext -y conf-m4.1
-  - opam install coq.$COQ_VERSION
   - eval $(opam config env)
   - ./configure.sh
 
