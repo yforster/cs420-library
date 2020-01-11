@@ -2,6 +2,7 @@ Require Coq.Strings.Ascii.
 Require Coq.Lists.List.
 Require Coq.Arith.PeanoNat.
 Require Coq.omega.Omega.
+Require Coq.Classes.Morphisms.
 Require Import Util.
 Require Import Lang.
 
@@ -321,7 +322,6 @@ Section Rewrite.
       }
       eapply accept_star_cons; eauto.
   Qed.
-
 End Rewrite.
 
 Section Sigma.
@@ -420,26 +420,354 @@ Section Sigma.
       auto using accept_any.
   Qed.
 
-  (** Any word is in [ANY *] *)
+  (** Any word is in [r_all] *)
 
-  Lemma accept_any_star:
+  Definition r_all := r_star r_any.
+
+  Lemma r_all_rw:
+    Equiv (Accept r_all) All.
+  Proof.
+    unfold r_all.
+    rewrite r_star_rw.
+    rewrite r_any_rw.
+    rewrite star_any_rw.
+    reflexivity.
+  Qed.
+
+  Lemma r_all_in:
     forall w,
-    w \in r_star r_any.
+    w \in r_all.
   Proof.
     intros.
-    (* Same as w in Star (Accept ANY) *)
-    apply r_star_rw.
-    (* Show that this is the same as [Star Any] *)
-    apply star_equiv_in with (L1:=Any).
-    - apply equiv_sym.
-      apply r_any_rw.
-    - (* Same as [All] *)
-      apply star_any_rw.
-      (* All strings are in [All] *)
-      auto using all_in.
+    apply r_all_rw.
+    apply all_in.
+  Qed.
+
+  Lemma accept_app_eq:
+    forall s1 s2 re1 re2,
+    s1 \in re1 ->
+    s2 \in re2 ->
+    (s1 ++ s2) \in re1;; re2.
+  Proof.
+    intros.
+    apply accept_app with (s1:=s1) (s2:=s2); auto.
+  Qed.
+
+  Lemma r_pow_rw:
+    forall r n,
+    Equiv (Accept (r_pow r n)) (Pow (Accept r) n).
+  Proof.
+    induction n; intros.
+    - split; simpl; intros.
+      + inversion H; subst; clear H.
+        apply pow_nil.
+      + inversion H; subst; clear H.
+        apply accept_nil.
+    - split; simpl; intros.
+      + inversion H; subst; clear H.
+        apply IHn in H3.
+        apply pow_cons_eq; auto.
+      + inversion H; subst; clear H.
+        apply IHn in H1.
+        apply accept_app_eq; auto.
   Qed.
 
 End Sigma.
+
+Section REquiv.
+  Definition REquiv x y := Equiv (Accept x) (Accept y).
+
+  (** Allow rewriting under Accept *)
+
+  Lemma r_equiv_sym:
+    forall r1 r2,
+    REquiv r1 r2 ->
+    REquiv r2 r1.
+  Proof.
+    unfold REquiv.
+    intros.
+    apply Lang.equiv_sym.
+    assumption.
+  Qed.
+
+  (** Equivalence is transitive. *)
+
+  Lemma r_equiv_trans:
+    forall r1 r2 r3,
+    REquiv r1 r2 ->
+    REquiv r2 r3 ->
+    REquiv r1 r3.
+  Proof.
+    unfold REquiv.
+    intros.
+    eapply Lang.equiv_trans; eauto.
+  Qed.
+
+  Lemma r_equiv_refl:
+    forall r,
+    REquiv r r.
+  Proof.
+    unfold REquiv.
+    intros.
+    apply Lang.equiv_refl.
+  Qed.
+
+  (** Register [Equiv] in Coq's tactics. *)
+  Global Add Parametric Relation : regex REquiv
+    reflexivity proved by r_equiv_refl
+    symmetry proved by r_equiv_sym
+    transitivity proved by r_equiv_trans
+    as r_equiv_setoid.
+
+  Import Morphisms.
+  Global Instance rw_equiv_proper: Proper (REquiv ==> eq ==> iff) Accept.
+  Proof.
+    unfold Proper.
+    unfold respectful.
+    intros.
+    subst.
+    split; intros.
+    - apply H.
+      assumption.
+    - apply H.
+      assumption.
+  Qed.
+
+  Global Instance r_app_equiv_proper: Proper (REquiv ==> REquiv ==> REquiv) r_app.
+  Proof.
+    unfold Proper.
+    unfold respectful.
+    unfold REquiv; intros.
+    repeat rewrite r_app_rw.
+    rewrite H.
+    rewrite H0.
+    reflexivity.
+  Qed.
+
+  (* Allow rewriting under r_union *)
+  Global Instance r_union_equiv_proper: Proper (REquiv ==> REquiv ==> REquiv) r_union.
+  Proof.
+    unfold Proper.
+    unfold respectful.
+    intros.
+    unfold REquiv in *.
+    repeat rewrite r_union_rw.
+    rewrite H.
+    rewrite H0.
+    reflexivity.
+  Qed.
+
+  (* Allow rewrite under r_star *)
+  Global Instance r_star_equiv_proper: Proper (REquiv ==> REquiv) r_star.
+  Proof.
+    unfold Proper.
+    unfold respectful.
+    unfold REquiv; intros.
+    repeat rewrite r_star_rw.
+    rewrite H.
+    reflexivity.
+  Qed.
+
+  Lemma r_union_assoc_rw:
+    forall r1 r2 r3,
+    REquiv (r1 || (r2 || r3)) ((r1 || r2) || r3).
+  Proof.
+    intros.
+    unfold REquiv.
+    repeat rewrite r_union_rw.
+    apply union_assoc_rw.
+  Qed.
+
+  Lemma r_union_sym_rw:
+    forall r1 r2,
+    REquiv (r1 || r2) (r2 || r1).
+  Proof.
+    unfold REquiv.
+    intros.
+    repeat rewrite r_union_rw.
+    apply union_sym_rw.
+  Qed.
+
+  Lemma r_union_dup_rw:
+    forall r,
+    REquiv (r || r) r.
+  Proof.
+    unfold REquiv; intros.
+    rewrite r_union_rw.
+    apply union_dup_rw.
+  Qed.
+
+  Lemma r_app_r_void_rw:
+    forall r,
+    REquiv (r ;; r_void) r_void.
+  Proof.
+    unfold REquiv.
+    intros.
+    rewrite r_app_rw, r_void_rw.
+    apply app_r_void_rw.
+  Qed.
+
+  Lemma r_app_l_void_rw:
+    forall r,
+    REquiv (r_void ;; r) r_void.
+  Proof.
+    unfold REquiv.
+    intros.
+    rewrite r_app_rw, r_void_rw.
+    apply app_l_void_rw.
+  Qed.
+
+  Lemma r_app_l_nil_rw:
+    forall r,
+    REquiv (r_nil ;; r) r.
+  Proof.
+    unfold REquiv.
+    intros.
+    rewrite r_app_rw.
+    rewrite r_nil_rw.
+    apply app_l_nil_rw.
+  Qed.
+
+  Lemma r_app_r_nil_rw:
+    forall r,
+    REquiv (r ;; r_nil) r.
+  Proof.
+    unfold REquiv; intros.
+    rewrite r_app_rw, r_nil_rw.
+    apply app_r_nil_rw.
+  Qed.
+
+  Lemma r_union_r_void_rw:
+    forall r,
+    REquiv (r || r_void) r.
+  Proof.
+    unfold REquiv; intros.
+    rewrite r_union_rw, r_void_rw.
+    apply union_r_void_rw.
+  Qed.
+
+  Lemma r_union_l_void_rw:
+    forall r,
+    REquiv (r_void || r) r.
+  Proof.
+    unfold REquiv; intros.
+    rewrite r_union_rw, r_void_rw.
+    apply union_l_void_rw.
+  Qed.
+
+  Lemma r_union_r_all_rw:
+    forall r,
+    REquiv (r || r_all) r_all.
+  Proof.
+    unfold REquiv.
+    intros.
+    rewrite r_union_rw.
+    rewrite r_all_rw.
+    apply union_r_all_rw.
+  Qed.
+
+  Lemma r_union_l_all_rw:
+    forall r,
+    REquiv (r_all || r) r_all.
+  Proof.
+    unfold REquiv; intros.
+    rewrite r_union_rw.
+    rewrite r_all_rw.
+    apply union_l_all_rw.
+  Qed.
+
+  Lemma r_app_star_rw:
+    forall r,
+    REquiv (r_star r ;; r_star r) (r_star r).
+  Proof.
+    unfold REquiv; intros.
+    rewrite r_app_rw.
+    rewrite r_star_rw.
+    apply app_star_rw.
+  Qed.
+
+  Lemma r_star_star_rw:
+    forall r,
+    REquiv (r_star (r_star r)) (r_star r).
+  Proof.
+    intros.
+    unfold REquiv.
+    repeat rewrite r_star_rw.
+    apply star_star_rw.
+  Qed.
+
+  Lemma r_star_nil_rw:
+    REquiv (r_star r_nil) r_nil.
+  Proof.
+    unfold REquiv; intros.
+    rewrite r_star_rw.
+    rewrite r_nil_rw.
+    apply star_nil_rw.
+  Qed.
+
+  Lemma r_star_void_rw:
+    REquiv (r_star r_void) r_nil.
+  Proof.
+    unfold REquiv.
+    rewrite r_star_rw.
+    rewrite r_void_rw.
+    rewrite r_nil_rw.
+    apply star_void_rw.
+  Qed.
+
+  Lemma r_app_union_distr_l:
+    forall r1 r2 r3,
+    REquiv ((r1 ;; r3) || (r2 ;; r3)) ((r1 || r2) ;; r3).
+  Proof.
+    unfold REquiv.
+    intros.
+    repeat (first [ rewrite r_app_rw | rewrite r_union_rw ]).
+    apply app_union_distr_l.
+  Qed.
+
+  Lemma r_pow_zero_rw:
+    forall r,
+    REquiv (r_pow r 0) r_nil.
+  Proof.
+    unfold REquiv; intros.
+    rewrite r_pow_rw.
+    rewrite r_nil_rw.
+    apply pow_zero_rw.
+  Qed.
+
+  Lemma r_pow_succ_equiv:
+    forall n r1 r2, 
+    REquiv r1 r2 ->
+    REquiv (r_pow r1 n) (r_pow r2 n) ->
+    REquiv (r_pow r1 (S n)) (r_pow r2 (S n)).
+  Proof.
+    unfold REquiv; intros.
+    repeat rewrite r_pow_rw in *.
+    apply pow_succ_equiv; auto.
+  Qed.
+
+  (** A nil inside a star can be elided. *)
+
+  Lemma r_star_union_nil_rw:
+    forall r,
+    REquiv (r_star (r_nil || r)) (r_star r).
+  Proof.
+    unfold REquiv.
+    intros.
+    repeat first [ rewrite r_star_rw | rewrite r_union_rw | rewrite r_nil_rw ].
+    apply star_union_nil_rw.
+  Qed.
+
+End REquiv.
+
+Section Size.
+  Fixpoint size r :=
+  match r with
+  | r_void | r_nil | r_char _ => 1
+  | r_app r1 r2 | r_union r1 r2 => 1 + (size r1) + (size r2)
+  | r_star r => 1 + (size r)
+  end.
+End Size.
 
 Section Pumping.
 
@@ -677,5 +1005,34 @@ Section Pumping.
 
 End Pumping.
 
+Section Props.
 
+  Lemma r_pow_char_in_inv:
+    forall n c w,
+    w \in r_pow (r_char c) n ->
+    w = pow1 c n.
+  Proof.
+    induction n; intros.
+    - inversion H; subst; clear H.
+      reflexivity.
+    - inversion H; subst; clear H.
+      apply IHn in H3.
+      subst.
+      inversion H2; subst; clear H2.
+      reflexivity.
+  Qed.
 
+  Lemma r_star_r_char_in_inv:
+    forall w c,
+    w \in r_star (r_char c) ->
+    exists n, w = pow1 c n.
+  Proof.
+    intros.
+    apply r_star_to_pow in H.
+    destruct H as (n, Hr).
+    exists n.
+    apply r_pow_char_in_inv in Hr.
+    assumption.
+  Qed.
+
+End Props.

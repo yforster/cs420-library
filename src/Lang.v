@@ -344,7 +344,7 @@ Section Defs.
     reflexivity proved by equiv_refl
     symmetry proved by equiv_sym
     transitivity proved by equiv_trans
-    as r_equiv_setoid.
+    as l_equiv_setoid.
 
   Goal forall (L1 L2:language), Equiv L1 L2 -> Equiv L2 L1.
   Proof.
@@ -581,42 +581,6 @@ Section Defs.
       assumption.
   Qed.
 
-  Lemma union_assoc_rw:
-    forall L1 L2 L3,
-    Equiv (Union L1 (Union L2 L3)) (Union (Union L1 L2) L3).
-  Proof.
-    intros.
-    split; intros.
-    - apply union_assoc_in_1.
-      assumption.
-    - apply union_assoc_in_2.
-      assumption.
-  Qed.
-
-  Lemma union_sym_rw:
-    forall L1 L2,
-    Equiv (Union L1 L2) (Union L2 L1).
-  Proof.
-    split; intros; destruct H; try (left; assumption); try (right; assumption).
-  Qed.
-
-  Lemma star_any_rw:
-    Equiv (Star Any) All.
-  Proof.
-    split; intros.
-    - apply all_in.
-    - unfold Star.
-      generalize dependent H.
-      induction s; intros. {
-        exists 0.
-        apply pow_nil.
-      }
-      assert (All s) by auto using all_in.
-      destruct IHs as (n, Hp); auto.
-      exists (S n).
-      apply pow_cons with (w1:=[a]) (w2:=s); auto using any_in.
-  Qed.
-
   Lemma pow_char_in_inv:
     forall c n w,
     Pow (Char c) n w ->
@@ -698,6 +662,107 @@ Section Defs.
     subst.
     intuition.
   Qed.
+
+  Lemma pow_add:
+    forall L n1 n2 (w1 w2:word),
+    (Pow L n1) w1 ->
+    (Pow L n2) w2 ->
+    (Pow L (n1 + n2)) (w1 ++ w2).
+  Proof.
+    induction n1; intros.
+    - inversion H; subst; clear H; simpl.
+      assumption.
+    - inversion H; subst; clear H.
+      simpl.
+      assert (Hx := IHn1 _ _ _ H2 H0).
+      rewrite <- app_assoc.
+      eapply pow_cons; eauto.
+  Qed.
+
+  Lemma pow_add_inv:
+    forall L n1 n2 (w:word),
+    (Pow L (n1 + n2)) w ->
+    exists w1 w2, w = w1 ++ w2 /\ Pow L n1 w1 /\ Pow L n2 w2.
+  Proof.
+    induction n1; simpl; intros. {
+      exists nil, w.
+      intuition.
+      apply pow_nil.
+    }
+    inversion H; subst; clear H.
+    assert (Hx := H1).
+    apply IHn1 in H1.
+    destruct H1 as (w3, (w4, (?, (Ha, Hb)))).
+    subst.
+    exists (w1 ++ w3) % list, w4.
+    rewrite app_assoc.
+    intuition.
+    eauto using pow_cons.
+  Qed.
+
+  Lemma nil_pow_in_inv:
+    forall n s,
+    Pow Nil n s ->
+    s = nil.
+  Proof.
+    induction n; intros.
+    - inversion H; subst; clear H.
+      reflexivity.
+    - inversion H; subst; clear H.
+      apply nil_in_inv in H2.
+      subst.
+      apply IHn in H1.
+      subst.
+      reflexivity.
+  Qed.
+
+  Lemma void_pow_in_inv:
+    forall n s,
+    Pow Void n s -> s = [].
+  Proof.
+    intros.
+    induction H.
+    - reflexivity.
+    - subst.
+      apply void_not_in in H0.
+      contradiction.
+  Qed.
+
+  Lemma pow_cons_eq:
+    forall (L:language) w1 w2 n,
+    L w1 ->
+    Pow L n w2 ->
+    Pow L (S n) (w1 ++ w2).
+  Proof.
+    intros.
+    apply pow_cons with (w1:=w1) (w2:=w2); auto.
+  Qed.
+
+  Lemma star_cons:
+    forall (L:language) w1 w2 w3,
+    L w1 ->
+    Star L w2 ->
+    w3 = w1 ++ w2 ->
+    Star L w3.
+  Proof.
+    intros.
+    destruct H0 as (n, Hp).
+    exists (S n).
+    subst.
+    apply pow_cons_eq; auto.
+  Qed.
+
+  Lemma star_cons_eq:
+    forall (L:language) w1 w2,
+    L w1 ->
+    Star L w2 ->
+    Star L (w1 ++ w2).
+  Proof.
+    intros.
+    apply star_cons with (w1:=w1) (w2:=w2); auto.
+  Qed.
+
+
 End Defs.
 
 
@@ -722,9 +787,54 @@ Section Rewrites.
   Import ListNotations.
   Open Scope lang_scope.
 
+  Lemma union_assoc_rw:
+    forall L1 L2 L3,
+    L1 U (L2 U L3) == (L1 U L2) U L3.
+  Proof.
+    intros.
+    split; intros.
+    - apply union_assoc_in_1.
+      assumption.
+    - apply union_assoc_in_2.
+      assumption.
+  Qed.
+
+  Lemma union_sym_rw:
+    forall L1 L2,
+    L1 U L2 == L2 U L1.
+  Proof.
+    split; intros; destruct H; try (left; assumption); try (right; assumption).
+  Qed.
+
+  Lemma union_dup_rw:
+    forall L,
+    L U L == L.
+  Proof.
+    intros; split; intros.
+    - destruct H; assumption.
+    - left. assumption.
+  Qed.
+
+  Lemma star_any_rw:
+    Any * == All.
+  Proof.
+    split; intros.
+    - apply all_in.
+    - unfold Star.
+      generalize dependent H.
+      induction s; intros. {
+        exists 0.
+        apply pow_nil.
+      }
+      assert (All s) by auto using all_in.
+      destruct IHs as (n, Hp); auto.
+      exists (S n).
+      apply pow_cons with (w1:=[a]) (w2:=s); auto using any_in.
+  Qed.
+
   Lemma app_r_void_rw:
     forall (L:language),
-    (L >> {}) == {}.
+    L >> {} == {}.
   Proof.
     split; intros.
     - apply app_in_inv in H.
@@ -737,7 +847,7 @@ Section Rewrites.
 
   Lemma app_l_void_rw:
     forall (L:language),
-    ({} >> L) == {}.
+    {} >> L == {}.
   Proof.
     split; intros.
     - apply app_in_inv in H.
@@ -750,7 +860,7 @@ Section Rewrites.
 
   Lemma app_l_nil_rw:
     forall (L:language),
-    (Nil >> L) == L.
+    Nil >> L == L.
   Proof.
     intros.
     split; intros.
@@ -767,7 +877,7 @@ Section Rewrites.
 
   Lemma app_r_nil_rw:
     forall (L:language),
-    (L >> Nil) == L.
+    L >> Nil == L.
   Proof.
     split; intros.
     - apply app_in_inv in H.
@@ -786,7 +896,7 @@ Section Rewrites.
 
   Lemma union_r_void_rw:
     forall (L:language),
-    (L U {}) == L.
+    L U {} == L.
   Proof.
     split; intros.
     + apply union_in_inv in H.
@@ -799,7 +909,7 @@ Section Rewrites.
 
   Lemma union_l_void_rw:
     forall (L:language),
-    ({} U L) == L.
+    {} U L == L.
   Proof.
     split; intros.
     - destruct H. {
@@ -811,46 +921,29 @@ Section Rewrites.
       assumption.
   Qed.
 
-  Lemma pow_add:
-    forall L n1 n2 (w1 w2:word),
-    (L ^^ n1) w1 ->
-    (L ^^ n2) w2 ->
-    (L ^^ (n1 + n2)) (w1 ++ w2) % list.
+  Lemma union_r_all_rw:
+    forall (L:language),
+    L U All == All.
   Proof.
-    induction n1; intros.
-    - inversion H; subst; clear H; simpl.
-      assumption.
-    - inversion H; subst; clear H.
-      simpl.
-      assert (Hx := IHn1 _ _ _ H2 H0).
-      rewrite <- app_assoc.
-      eapply pow_cons; eauto.
+    split; intros.
+    + apply all_in.
+    + right.
+      assumption. 
   Qed.
 
-  Lemma pow_add_inv:
-    forall L n1 n2 (w:word),
-    (L ^^ (n1 + n2)) w ->
-    exists w1 w2, w = w1 ++ w2 /\ (L ^^ n1) w1 /\ (L ^^ n2) w2.
+  Lemma union_l_all_rw:
+    forall (L:language),
+    All U L == All.
   Proof.
-    induction n1; simpl; intros. {
-      exists nil, w.
-      intuition.
-      apply pow_nil.
-    }
-    inversion H; subst; clear H.
-    assert (Hx := H1).
-    apply IHn1 in H1.
-    destruct H1 as (w3, (w4, (?, (Ha, Hb)))).
-    subst.
-    exists (w1 ++ w3) % list, w4.
-    rewrite app_assoc.
-    intuition.
-    eauto using pow_cons.
+    split; intros.
+    - apply all_in.
+    - left.
+      assumption.
   Qed.
 
   Lemma app_star_rw:
     forall (L:language),
-    (L * >> L * ) == (L  *).
+    L * >> L * == L  * .
   Proof.
     split; intros.
     - apply app_in_inv in H.
@@ -869,7 +962,7 @@ Section Rewrites.
 
   Lemma star_star_rw:
     forall (L:language),
-    (L * ) * == L *.
+    L * * == L *.
   Proof.
     intros.
     split; intros.
@@ -892,22 +985,6 @@ Section Rewrites.
       + auto with *.
   Qed.
 
-  Lemma nil_pow_in_inv:
-    forall n s,
-    (Nil ^^ n) s ->
-    s = nil.
-  Proof.
-    induction n; intros.
-    - inversion H; subst; clear H.
-      reflexivity.
-    - inversion H; subst; clear H.
-      apply nil_in_inv in H2.
-      subst.
-      apply IHn in H1.
-      subst.
-      reflexivity.
-  Qed.
-
   Lemma star_nil_rw:
     Nil * == Nil.
   Proof.
@@ -919,18 +996,6 @@ Section Rewrites.
     - apply nil_in_inv in H.
       subst.
       apply star_in_nil.
-  Qed.
-
-  Lemma void_pow_in_inv:
-    forall n s,
-    ({} ^^ n) s -> s = [].
-  Proof.
-    intros.
-    induction H.
-    - reflexivity.
-    - subst.
-      apply void_not_in in H0.
-      contradiction.
   Qed.
 
   Lemma star_void_rw:
@@ -996,40 +1061,6 @@ Section Rewrites.
       apply pow_cons with (w1:=w1) (w2:=w2); auto.
       apply H in H4.
       assumption.
-  Qed.
-
-  Lemma pow_cons_eq:
-    forall (L:language) w1 w2 n,
-    L w1 ->
-    (L ^^ n) w2 ->
-    (L ^^ S n) (w1 ++ w2).
-  Proof.
-    intros.
-    apply pow_cons with (w1:=w1) (w2:=w2); auto.
-  Qed.
-
-  Lemma star_cons:
-    forall (L:language) w1 w2 w3,
-    L w1 ->
-    (L *) w2 ->
-    w3 = w1 ++ w2 ->
-    (L *) w3.
-  Proof.
-    intros.
-    destruct H0 as (n, Hp).
-    exists (S n).
-    subst.
-    apply pow_cons_eq; auto.
-  Qed.
-
-  Lemma star_cons_eq:
-    forall (L:language) w1 w2,
-    L w1 ->
-    (L *) w2 ->
-    (L *) (w1 ++ w2).
-  Proof.
-    intros.
-    apply star_cons with (w1:=w1) (w2:=w2); auto.
   Qed.
 
   (** A nil inside a star can be elided. *)
