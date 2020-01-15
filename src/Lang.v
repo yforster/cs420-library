@@ -64,7 +64,7 @@ Section Defs.
     Nil w ->
     w = [].
   Proof.
-    unfold Nil; intros.
+    unfold Nil. intros.
     assumption.
   Qed.
 
@@ -77,8 +77,8 @@ Section Defs.
     forall (c:ascii),
     Char c [c].
   Proof.
-    intros.
     unfold Char.
+    intros.
     reflexivity.
   Qed.
 
@@ -87,6 +87,7 @@ Section Defs.
     Char c w ->
     w = [c].
   Proof.
+    unfold Char.
     intros.
     assumption.
   Qed.
@@ -99,6 +100,7 @@ Section Defs.
     forall c,
     Any [c].
   Proof.
+    unfold Any.
     intros.
     exists c.
     reflexivity.

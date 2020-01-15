@@ -474,15 +474,17 @@ Section Sigma.
 
 End Sigma.
 
+Definition REquiv x y := Equiv (Accept x) (Accept y).
+Infix "<==>" := REquiv (at level 85, no associativity) : regex_scope.
+
 Section REquiv.
-  Definition REquiv x y := Equiv (Accept x) (Accept y).
 
   (** Allow rewriting under Accept *)
 
   Lemma r_equiv_sym:
     forall r1 r2,
-    REquiv r1 r2 ->
-    REquiv r2 r1.
+    r1 <==> r2 ->
+    r2 <==> r1.
   Proof.
     unfold REquiv.
     intros.
@@ -494,9 +496,9 @@ Section REquiv.
 
   Lemma r_equiv_trans:
     forall r1 r2 r3,
-    REquiv r1 r2 ->
-    REquiv r2 r3 ->
-    REquiv r1 r3.
+    r1 <==> r2 ->
+    r2 <==> r3 ->
+    r1 <==> r3.
   Proof.
     unfold REquiv.
     intros.
@@ -505,7 +507,7 @@ Section REquiv.
 
   Lemma r_equiv_refl:
     forall r,
-    REquiv r r.
+    r <==> r.
   Proof.
     unfold REquiv.
     intros.
@@ -570,7 +572,7 @@ Section REquiv.
 
   Lemma r_union_assoc_rw:
     forall r1 r2 r3,
-    REquiv (r1 || (r2 || r3)) ((r1 || r2) || r3).
+    r1 || (r2 || r3) <==> (r1 || r2) || r3.
   Proof.
     intros.
     unfold REquiv.
@@ -580,7 +582,7 @@ Section REquiv.
 
   Lemma r_union_sym_rw:
     forall r1 r2,
-    REquiv (r1 || r2) (r2 || r1).
+    r1 || r2 <==> r2 || r1.
   Proof.
     unfold REquiv.
     intros.
@@ -590,7 +592,7 @@ Section REquiv.
 
   Lemma r_union_dup_rw:
     forall r,
-    REquiv (r || r) r.
+    r || r <==> r.
   Proof.
     unfold REquiv; intros.
     rewrite r_union_rw.
@@ -599,7 +601,7 @@ Section REquiv.
 
   Lemma r_app_r_void_rw:
     forall r,
-    REquiv (r ;; r_void) r_void.
+    r ;; r_void <==> r_void.
   Proof.
     unfold REquiv.
     intros.
@@ -609,7 +611,7 @@ Section REquiv.
 
   Lemma r_app_l_void_rw:
     forall r,
-    REquiv (r_void ;; r) r_void.
+    r_void ;; r <==> r_void.
   Proof.
     unfold REquiv.
     intros.
@@ -619,7 +621,7 @@ Section REquiv.
 
   Lemma r_app_l_nil_rw:
     forall r,
-    REquiv (r_nil ;; r) r.
+    r_nil ;; r <==> r.
   Proof.
     unfold REquiv.
     intros.
@@ -630,7 +632,7 @@ Section REquiv.
 
   Lemma r_app_r_nil_rw:
     forall r,
-    REquiv (r ;; r_nil) r.
+    r ;; r_nil <==> r.
   Proof.
     unfold REquiv; intros.
     rewrite r_app_rw, r_nil_rw.
@@ -639,7 +641,7 @@ Section REquiv.
 
   Lemma r_union_r_void_rw:
     forall r,
-    REquiv (r || r_void) r.
+    r || r_void <==> r.
   Proof.
     unfold REquiv; intros.
     rewrite r_union_rw, r_void_rw.
@@ -648,7 +650,7 @@ Section REquiv.
 
   Lemma r_union_l_void_rw:
     forall r,
-    REquiv (r_void || r) r.
+    r_void || r <==> r.
   Proof.
     unfold REquiv; intros.
     rewrite r_union_rw, r_void_rw.
@@ -657,7 +659,7 @@ Section REquiv.
 
   Lemma r_union_r_all_rw:
     forall r,
-    REquiv (r || r_all) r_all.
+    r || r_all <==> r_all.
   Proof.
     unfold REquiv.
     intros.
@@ -668,7 +670,7 @@ Section REquiv.
 
   Lemma r_union_l_all_rw:
     forall r,
-    REquiv (r_all || r) r_all.
+    r_all || r <==> r_all.
   Proof.
     unfold REquiv; intros.
     rewrite r_union_rw.
@@ -678,7 +680,7 @@ Section REquiv.
 
   Lemma r_app_star_rw:
     forall r,
-    REquiv (r_star r ;; r_star r) (r_star r).
+    r_star r ;; r_star r <==> r_star r.
   Proof.
     unfold REquiv; intros.
     rewrite r_app_rw.
@@ -688,7 +690,7 @@ Section REquiv.
 
   Lemma r_star_star_rw:
     forall r,
-    REquiv (r_star (r_star r)) (r_star r).
+    r_star (r_star r) <==> r_star r.
   Proof.
     intros.
     unfold REquiv.
@@ -697,7 +699,7 @@ Section REquiv.
   Qed.
 
   Lemma r_star_nil_rw:
-    REquiv (r_star r_nil) r_nil.
+    r_star r_nil <==> r_nil.
   Proof.
     unfold REquiv; intros.
     rewrite r_star_rw.
@@ -706,7 +708,7 @@ Section REquiv.
   Qed.
 
   Lemma r_star_void_rw:
-    REquiv (r_star r_void) r_nil.
+    r_star r_void <==> r_nil.
   Proof.
     unfold REquiv.
     rewrite r_star_rw.
@@ -717,7 +719,7 @@ Section REquiv.
 
   Lemma r_app_union_distr_l:
     forall r1 r2 r3,
-    REquiv ((r1 ;; r3) || (r2 ;; r3)) ((r1 || r2) ;; r3).
+    (r1 ;; r3) || (r2 ;; r3) <==> (r1 || r2) ;; r3.
   Proof.
     unfold REquiv.
     intros.
@@ -727,7 +729,7 @@ Section REquiv.
 
   Lemma r_pow_zero_rw:
     forall r,
-    REquiv (r_pow r 0) r_nil.
+    r_pow r 0 <==> r_nil.
   Proof.
     unfold REquiv; intros.
     rewrite r_pow_rw.
@@ -737,9 +739,9 @@ Section REquiv.
 
   Lemma r_pow_succ_equiv:
     forall n r1 r2, 
-    REquiv r1 r2 ->
-    REquiv (r_pow r1 n) (r_pow r2 n) ->
-    REquiv (r_pow r1 (S n)) (r_pow r2 (S n)).
+    r1 <==> r2 ->
+    r_pow r1 n <==> r_pow r2 n ->
+    r_pow r1 (S n) <==> r_pow r2 (S n).
   Proof.
     unfold REquiv; intros.
     repeat rewrite r_pow_rw in *.
@@ -750,7 +752,7 @@ Section REquiv.
 
   Lemma r_star_union_nil_rw:
     forall r,
-    REquiv (r_star (r_nil || r)) (r_star r).
+    r_star (r_nil || r) <==> r_star r.
   Proof.
     unfold REquiv.
     intros.
