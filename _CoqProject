@@ -1,9 +1,8 @@
 -R src Turing
 src/LangDec.v
 src/LangRed.v
-src/Lang.v 
+src/Lang.v
 src/Regex.v
 src/Regular.v
 src/Turing.v
 src/Util.v
-
