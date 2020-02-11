@@ -19,6 +19,18 @@ Section Defs.
 
   Definition language := word -> Prop.
 
+  (** A word is in a language is defined as function application *)
+  Definition In w (L:language) := L w. 
+
+  Lemma in_def:
+    forall (L:language) w,
+    L w = In w L.
+  Proof.
+    intros.
+    unfold In.
+    reflexivity.
+  Qed.
+
   (** The language that accepts all strings. *)
 
   Definition All : language := fun w => True.
@@ -27,7 +39,7 @@ Section Defs.
 
   Lemma all_in:
     forall w,
-    All w.
+    In w All.
   Proof.
     intros.
     unfold All.
@@ -42,7 +54,7 @@ Section Defs.
 
   Lemma void_not_in:
     forall w,
-    ~ Void w.
+    ~ In w Void.
   Proof.
     intros.
     unfold Void; intros N.
@@ -54,14 +66,14 @@ Section Defs.
   Definition Nil : language := fun w => w = [].
 
   Lemma nil_in:
-    Nil [].
+    In [] Nil.
   Proof.
     reflexivity.
   Qed.
 
   Lemma nil_in_inv:
     forall w,
-    Nil w ->
+    In w Nil ->
     w = [].
   Proof.
     unfold Nil. intros.
@@ -75,7 +87,7 @@ Section Defs.
 
   Lemma char_in:
     forall (c:ascii),
-    Char c [c].
+    In [c] (Char c).
   Proof.
     unfold Char.
     intros.
@@ -84,7 +96,7 @@ Section Defs.
 
   Lemma char_in_inv:
     forall c w,
-    Char c w ->
+    In w (Char c) ->
     w = [c].
   Proof.
     unfold Char.
@@ -98,7 +110,7 @@ Section Defs.
 
   Lemma any_in:
     forall c,
-    Any [c].
+    In [c] Any.
   Proof.
     unfold Any.
     intros.
@@ -108,7 +120,7 @@ Section Defs.
 
   Lemma any_in_inv:
     forall w,
-    Any w -> exists c, w = [c].
+    In w Any -> exists c, w = [c].
   Proof.
     unfold Any; auto.
   Qed.
@@ -123,11 +135,11 @@ Section Defs.
 
   Lemma app_in_eq:
     forall (L1 L2:language) w1 w2,
-    L1 w1 ->
-    L2 w2 ->
-    App L1 L2 (w1 ++ w2).
+    In w1 L1 ->
+    In w2 L2 ->
+    In (w1 ++ w2) (App L1 L2).
   Proof.
-    unfold App; intros.
+    unfold In, App; intros.
     eauto.
   Qed.
 
@@ -135,20 +147,20 @@ Section Defs.
       the form of [w1 ++ w2]. *)
   Lemma app_in:
     forall (L1 L2:language) w1 w2 w3,
-    L1 w1 ->
-    L2 w2 ->
+    In w1 L1 ->
+    In w2 L2 ->
     w3 = w1 ++ w2 ->
-    App L1 L2 w3.
+    In w3 (App L1 L2).
   Proof.
-    intros.
+    unfold In; intros.
     subst.
     apply app_in_eq; auto.
   Qed.
 
   Lemma app_in_inv:
     forall (L1 L2:language) w,
-    App L1 L2 w ->
-    exists w1 w2, w = w1 ++ w2 /\ L1 w1 /\ L2 w2.
+    In w (App L1 L2) ->
+    exists w1 w2, w = w1 ++ w2 /\ In w1 L1 /\ In w2 L2.
   Proof.
     unfold App; intros.
     assumption.
@@ -156,8 +168,8 @@ Section Defs.
 
   Lemma app_l_char_in:
     forall c (L:language) w,
-    L w ->
-    App (Char c) L (c :: w).
+    In w L ->
+    In (c :: w) (App (Char c) L).
   Proof.
     intros.
     apply app_in with (w1:=[c]) (w2:=w).
@@ -168,8 +180,8 @@ Section Defs.
 
   Lemma app_l_all_in:
     forall (L:language) w1 w2,
-    L w2 ->
-    App All L (w1 ++ w2).
+    In w2 L ->
+    In (w1 ++ w2) (App All L).
   Proof.
     intros.
     apply app_in with (w1:=w1) (w2:=w2).
@@ -180,8 +192,8 @@ Section Defs.
 
   Lemma app_r_all_in:
     forall (L:language) w1 w2,
-    L w1 ->
-    App L All (w1 ++ w2).
+    In w1 L ->
+    In (w1 ++ w2) (App L All).
   Proof.
     intros.
     apply app_in with (w1:=w1) (w2:=w2).
@@ -192,7 +204,7 @@ Section Defs.
 
   Lemma app_l_char_in_inv:
     forall c L w,
-    App (Char c) L w ->
+    In w (App (Char c) L) ->
     exists w', w = c:: w' /\ L w'.
   Proof.
     intros.
@@ -206,7 +218,7 @@ Section Defs.
 
   Lemma app_r_char_in_inv:
     forall c L w,
-    App L (Char c) w ->
+    In w (App L (Char c)) ->
     exists w', w = w' ++ [c] /\ L w'.
   Proof.
     intros.
@@ -225,25 +237,25 @@ Section Defs.
 
   Lemma union_in_l:
     forall (L1 L2:language) w,
-    L1 w ->
-    Union L1 L2 w.
+    In w L1 ->
+    In w (Union L1 L2).
   Proof.
-    unfold Union.
+    unfold In, Union.
     eauto.
   Qed.
 
   Lemma union_in_r:
     forall (L1 L2:language) w,
-    L2 w ->
-    Union L1 L2 w.
+    In w L2 ->
+    In w (Union L1 L2).
   Proof.
-    unfold Union; eauto.
+    unfold In, Union; eauto.
   Qed.
 
   Lemma union_in_inv:
     forall (L1 L2:language) w,
-    Union L1 L2 w ->
-    L1 w \/ L2 w.
+    In w (Union L1 L2) ->
+    In w L1 \/ In w L2.
   Proof.
     unfold Union; auto.
   Qed.
@@ -262,8 +274,8 @@ Section Defs.
 
   Lemma pow_in_eq:
     forall (L:language) w,
-    L w ->
-    Pow L 1 w.
+    In w L ->
+    In w (Pow L 1).
   Proof.
     intros.
     apply pow_cons with (w1:=w) (w2:=nil).
@@ -279,7 +291,7 @@ Section Defs.
 
   Lemma star_in_nil:
     forall L,
-    Star L nil.
+    In [] (Star L).
   Proof.
     intros.
     exists 0.
@@ -288,27 +300,36 @@ Section Defs.
 
   Lemma star_in_eq:
     forall (L:language) w,
-    L w ->
-    Star L w.
+    In w L ->
+    In w (Star L).
   Proof.
     intros.
     exists 1.
-    apply    pow_in_eq; auto.
+    apply pow_in_eq; auto.
   Qed.
 
   Lemma pow_to_star:
     forall (L:language) n w,
-    Pow L n w ->
-    Star L w.
+    In w (Pow L n) ->
+    In w (Star L).
   Proof.
     intros.
     exists n.
     assumption.
   Qed.
 
+  Lemma star_to_pow:
+    forall (L:language) w,
+    In w (Star L) ->
+    exists n, In w (Pow L n).
+  Proof.
+    unfold Star, In; intros.
+    assumption.
+  Qed.
+
   (** Equivalence of languages *)
 
-  Definition Equiv (L1 L2:language) : Prop := forall s, L1 s <-> L2 s. 
+  Definition Equiv (L1 L2:language) : Prop := forall w, In w L1 <-> In w L2. 
 
   (** Equivalence is symmetric. *)
 
@@ -357,10 +378,10 @@ Section Defs.
   Qed.
 
   Lemma pow_equiv_in:
-    forall L1 L2 n s,
+    forall L1 L2 n w,
     Equiv L1 L2 ->
-    Pow L1 n s ->
-    Pow L2 n s.
+    In w (Pow L1 n) ->
+    In w (Pow L2 n).
   Proof.
     intros.
     induction H0; intros.
@@ -389,21 +410,22 @@ Section Defs.
     Equiv (Star L1) (Star L2).
   Proof.
     split; intros.
-    + unfold Star in *.
-      destruct H0 as (n, Hp).
+    + apply star_to_pow in H0.
+      destruct H0 as (n, Hi).
+      apply pow_to_star with (n:=n).
       eauto using pow_equiv_in.
-    + destruct H0 as (n, Hp).
-      unfold Star.
-      exists n.
+    + apply star_to_pow in H0.
+      destruct H0 as (n, Hi).
+      apply pow_to_star with (n:=n).
       apply equiv_sym in H.
       eauto using pow_equiv_in.
   Qed.
 
   Lemma star_equiv_in:
-    forall L1 L2 s,
+    forall L1 L2 w,
     Equiv L1 L2 ->
-    Star L1 s ->
-    Star L2 s.
+    In w (Star L1) ->
+    In w (Star L2).
   Proof.
     intros.
     apply star_equiv in H.
@@ -415,8 +437,8 @@ Section Defs.
     forall L1 L2 L3 L4 w,
     Equiv L1 L3 ->
     Equiv L2 L4 ->
-    App L1 L2 w ->
-    App L3 L4 w.
+    In w (App L1 L2) ->
+    In w (App L3 L4).
   Proof.
     intros.
     apply app_in_inv in H1.
@@ -444,8 +466,8 @@ Section Defs.
     forall L1 L2 L3 L4 w,
     Equiv L1 L3 ->
     Equiv L2 L4 ->
-    Union L1 L2 w ->
-    Union L3 L4 w.
+    In w (Union L1 L2) ->
+    In w (Union L3 L4).
   Proof.
     intros.
     destruct H1.
@@ -509,9 +531,9 @@ Section Defs.
   (** Relate [All] with [Star Any]. *)
 
   Lemma app_assoc_in_1:
-    forall L1 L2 L3 s,
-    App L1 (App L2 L3) s ->
-    App (App L1 L2) L3 s.
+    forall L1 L2 L3 w,
+    In w (App L1 (App L2 L3)) ->
+    In w (App (App L1 L2) L3).
   Proof.
     intros.
     apply app_in_inv in H.
@@ -525,9 +547,9 @@ Section Defs.
   Qed.
 
   Lemma app_assoc_in_2:
-    forall L1 L2 L3 s,
-    App (App L1 L2) L3 s ->
-    App L1 (App L2 L3) s.
+    forall L1 L2 L3 w,
+    In w (App (App L1 L2) L3) ->
+    In w (App L1 (App L2 L3)).
   Proof.
     intros.
     apply app_in_inv in H.
@@ -553,9 +575,9 @@ Section Defs.
   Qed.
 
   Lemma union_assoc_in_1:
-    forall L1 L2 L3 s,
-    Union L1 (Union L2 L3) s ->
-    Union (Union L1 L2) L3 s.
+    forall w L1 L2 L3,
+    In w (Union L1 (Union L2 L3)) ->
+    In w (Union (Union L1 L2) L3).
   Proof.
     intros.
     destruct H as [H1|[H2|H3]].
@@ -570,9 +592,9 @@ Section Defs.
   Qed.
 
   Lemma union_assoc_in_2:
-    forall L1 L2 L3 s,
-    Union (Union L1 L2) L3 s ->
-    Union L1 (Union L2 L3) s.
+    forall L1 L2 L3 w,
+    In w (Union (Union L1 L2) L3) ->
+    In w (Union L1 (Union L2 L3)).
   Proof.
     intros.
     destruct H as [[H|H]|H].
@@ -585,7 +607,7 @@ Section Defs.
 
   Lemma pow_char_in_inv:
     forall c n w,
-    Pow (Char c) n w ->
+    In w (Pow (Char c) n) ->
     w = Util.pow1 c n.
   Proof.
     induction n; intros.
@@ -600,8 +622,8 @@ Section Defs.
 
   Lemma pow_char_cons:
     forall c n w,
-    Pow (Char c) n w ->
-    Pow (Char c) (S n) (c::w).
+    In w (Pow (Char c) n) ->
+    In (c::w) (Pow (Char c) (S n)).
   Proof.
     intros.
     apply pow_cons with (w1:=[c]) (w2:=w).
@@ -612,7 +634,7 @@ Section Defs.
 
   Lemma pow_char_in:
     forall c n,
-    Pow (Char c) n (Util.pow1 c n).
+    In (Util.pow1 c n) (Pow (Char c) n).
   Proof.
     induction n; intros.
     - apply pow_nil.
@@ -625,8 +647,8 @@ Section Defs.
 
   Lemma pow_char_cons_inv:
     forall c n w,
-    Pow (Char c) (S n) w ->
-    exists w', w = c::w' /\ Pow (Char c) n w'.
+    In w (Pow (Char c) (S n)) ->
+    exists w', w = c::w' /\ In w' (Pow (Char c) n).
   Proof.
     intros.
     inversion H; subst; clear H.
@@ -637,7 +659,7 @@ Section Defs.
 
   Lemma pow_pow_in_inv:
     forall c1 c2 n1 n2 w,
-    App (Pow (Char c1) n1) (Pow (Char c2) n2) w ->
+    In w (App (Pow (Char c1) n1) (Pow (Char c2) n2)) ->
     w = Util.pow1 c1 n1 ++ Util.pow1 c2 n2.
   Proof.
     intros.
@@ -667,9 +689,9 @@ Section Defs.
 
   Lemma pow_add:
     forall L n1 n2 (w1 w2:word),
-    (Pow L n1) w1 ->
-    (Pow L n2) w2 ->
-    (Pow L (n1 + n2)) (w1 ++ w2).
+    In w1 (Pow L n1) ->
+    In w2 (Pow L n2) ->
+    In (w1 ++ w2) (Pow L (n1 + n2)).
   Proof.
     induction n1; intros.
     - inversion H; subst; clear H; simpl.
@@ -683,8 +705,8 @@ Section Defs.
 
   Lemma pow_add_inv:
     forall L n1 n2 (w:word),
-    (Pow L (n1 + n2)) w ->
-    exists w1 w2, w = w1 ++ w2 /\ Pow L n1 w1 /\ Pow L n2 w2.
+    In w (Pow L (n1 + n2)) ->
+    exists w1 w2, w = w1 ++ w2 /\ In w1 (Pow L n1) /\ In w2 (Pow L n2).
   Proof.
     induction n1; simpl; intros. {
       exists nil, w.
@@ -699,13 +721,14 @@ Section Defs.
     exists (w1 ++ w3) % list, w4.
     rewrite app_assoc.
     intuition.
+    unfold In.
     eauto using pow_cons.
   Qed.
 
   Lemma nil_pow_in_inv:
-    forall n s,
-    Pow Nil n s ->
-    s = nil.
+    forall n w,
+    In w (Pow Nil n) ->
+    w = [].
   Proof.
     induction n; intros.
     - inversion H; subst; clear H.
@@ -719,8 +742,9 @@ Section Defs.
   Qed.
 
   Lemma void_pow_in_inv:
-    forall n s,
-    Pow Void n s -> s = [].
+    forall n w,
+    In w (Pow Void n) ->
+    w = [].
   Proof.
     intros.
     induction H.
@@ -732,9 +756,9 @@ Section Defs.
 
   Lemma pow_cons_eq:
     forall (L:language) w1 w2 n,
-    L w1 ->
-    Pow L n w2 ->
-    Pow L (S n) (w1 ++ w2).
+    In w1 L ->
+    In w2 (Pow L n) ->
+    In (w1 ++ w2) (Pow L (S n)).
   Proof.
     intros.
     apply pow_cons with (w1:=w1) (w2:=w2); auto.
@@ -742,10 +766,10 @@ Section Defs.
 
   Lemma star_cons:
     forall (L:language) w1 w2 w3,
-    L w1 ->
-    Star L w2 ->
+    In w1 L ->
+    In w2 (Star L) ->
     w3 = w1 ++ w2 ->
-    Star L w3.
+    In w3 (Star L).
   Proof.
     intros.
     destruct H0 as (n, Hp).
@@ -756,9 +780,9 @@ Section Defs.
 
   Lemma star_cons_eq:
     forall (L:language) w1 w2,
-    L w1 ->
-    Star L w2 ->
-    Star L (w1 ++ w2).
+    In w1 L ->
+    In w2 (Star L) ->
+    In (w1 ++ w2) (Star L).
   Proof.
     intros.
     apply star_cons with (w1:=w1) (w2:=w2); auto.
@@ -824,14 +848,17 @@ Section Rewrites.
     - apply all_in.
     - unfold Star.
       generalize dependent H.
-      induction s; intros. {
+      induction w; intros. {
         exists 0.
         apply pow_nil.
       }
-      assert (All s) by auto using all_in.
-      destruct IHs as (n, Hp); auto.
+      assert (All w) by auto using all_in.
+      destruct IHw as (n, Hp); auto.
       exists (S n).
-      apply pow_cons with (w1:=[a]) (w2:=s); auto using any_in.
+      rewrite Lang.in_def in *.
+      apply pow_cons with (w1:=[a]) (w2:=w); auto.
+      rewrite Lang.in_def.
+      auto using any_in.
   Qed.
 
   Lemma app_r_void_rw:
@@ -872,7 +899,7 @@ Section Rewrites.
       apply nil_in_inv in Ha.
       subst.
       assumption.
-    - apply app_in_eq with (w1:=[]) (w2:=s).
+    - apply app_in_eq with (w1:=[]) (w2:=w).
       + apply nil_in.
       + assumption.
   Qed.
@@ -889,7 +916,7 @@ Section Rewrites.
       subst.
       rewrite app_nil_r.
       assumption.
-    - apply app_in with (w1:=s) (w2:=[]).
+    - apply app_in with (w1:=w) (w2:=[]).
       + assumption.
       + apply nil_in.
       + rewrite app_nil_r.
@@ -955,11 +982,9 @@ Section Rewrites.
       destruct Hb as (n2, Hb).
       exists (n1 + n2).
       apply pow_add; auto.
-    - destruct H as (n, H).
-      apply app_in_eq with (w1:=nil) (w2:=s).
+    - apply app_in_eq with (w1:=[]) (w2:=w).
       + apply star_in_nil.
-      + exists n.
-        assumption.
+      + assumption.
   Qed.
 
   Lemma star_star_rw:
@@ -968,8 +993,9 @@ Section Rewrites.
   Proof.
     intros.
     split; intros.
-    - destruct H as (n, Hn).
-      generalize dependent s.
+    - apply star_to_pow in H.
+      destruct H as (n, Hn).
+      generalize dependent w.
       induction n; intros. {
         inversion Hn; subst; clear Hn.
         apply star_in_nil.
@@ -980,7 +1006,7 @@ Section Rewrites.
       auto using app_in_eq.
     - destruct H as (n, H).
       exists 1.
-      apply pow_cons with (w1:=s) (w2:=nil).
+      apply pow_cons with (w1:=w) (w2:=nil).
       + apply pow_nil.
       + exists n.
         assumption.
@@ -991,7 +1017,8 @@ Section Rewrites.
     Nil * == Nil.
   Proof.
     split; intros.
-    - destruct H as (n, H).
+    - apply star_to_pow in H.
+      destruct H as (n, H).
       apply nil_pow_in_inv in H.
       subst.
       apply nil_in.
@@ -1027,10 +1054,11 @@ Section Rewrites.
         assumption.
     - apply app_in_inv in H.
       destruct H as (w1, (w2, (?, (Ha, Hb)))); subst.
+      apply union_in_inv in Ha.
       destruct Ha.
-      + left.
+      + apply union_in_l.
         auto using app_in_eq.
-      + right.
+      + apply union_in_r.
         auto using app_in_eq.
   Qed.
 
@@ -1118,7 +1146,8 @@ Module Examples.
       apply char_in_inv in Hk.
       subst.
       reflexivity.
-    - destruct H as (w, ?).
+    - unfold Lang.In in H.
+      destruct H as (w', ?).
       subst.
       apply app_in_eq.
       + apply all_in.
@@ -1126,7 +1155,7 @@ Module Examples.
   Qed.
 
   (** Show that string "a" is in L1. *)
-  Goal L1 ["a"].
+  Goal Lang.In ["a"] L1.
   Proof.
     unfold L1.
     (*
@@ -1144,7 +1173,7 @@ Module Examples.
   Qed.
 
   (** Show that the empty string is not in L1. *)
-  Goal ~ L1 [].
+  Goal ~ Lang.In [] L1.
   Proof.
     unfold L1; intros N.
     apply app_in_inv in N.
@@ -1162,7 +1191,7 @@ Module Examples.
 
   (** Show that string "bbba" is L1 *)
 
-  Goal L1 ["b"; "b"; "b"; "a"].
+  Goal Lang.In ["b"; "b"; "b"; "a"] L1.
   Proof.
     unfold L1.
     apply app_in with (w1:=["b"; "b"; "b"]) (w2:=["a"]).
@@ -1174,7 +1203,7 @@ Module Examples.
   Definition L2 : language := fun w => length w = 2.
 
   (** Show that string "01" is in L2. *)
-  Goal L2 ["0"; "1"].
+  Goal Lang.In ["0"; "1"] L2.
   Proof.
     unfold L2.
     reflexivity.
@@ -1194,7 +1223,8 @@ Module Examples.
       simpl.
       exists w2.
       reflexivity.
-    - destruct H as (w, ?).
+    - unfold Lang.In in H.
+      destruct H as (w', ?).
       subst.
       simpl.
       apply app_assoc_in_1.
@@ -1231,7 +1261,7 @@ Module Examples.
   Qed.
 
   (** L4 accepts the empty string. *)
-  Goal L4 [].
+  Goal Lang.In [] L4.
   Proof.
     unfold L4.
     exists 0.
@@ -1242,7 +1272,7 @@ Module Examples.
   Qed.
 
   (** L4 accepts a single a and a single b. *)
-  Goal L4 ["a"; "a"; "b"; "b"].
+  Goal Lang.In ["a"; "a"; "b"; "b"] L4.
   Proof.
     exists 2.
     apply app_in with (w1:=["a"; "a"]) (w2:=["b"; "b"]).
@@ -1253,7 +1283,7 @@ Module Examples.
     + reflexivity.
   Qed.
 
-  Goal ~ L4 ["a"; "b"; "b"].
+  Goal ~ Lang.In ["a"; "b"; "b"] L4.
   Proof.
     unfold L4;
     intros N.
@@ -1275,7 +1305,7 @@ Module Examples.
 
   (** Show that this random string is not in L4 *)
 
-  Goal ~ L4 ["c"; "a"; "r"].
+  Goal ~ Lang.In ["c"; "a"; "r"] L4.
   Proof.
     unfold L4.
     intros N.

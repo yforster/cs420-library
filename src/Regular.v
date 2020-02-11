@@ -204,15 +204,15 @@ Module Examples.
       destruct H3 as (c2, ?).
       subst.
       reflexivity.
-    - destruct s. {
+    - destruct w. {
         inversion H.
       }
       inversion H; subst; clear H.
-      destruct s. {
+      destruct w. {
         inversion H1.
       }
       inversion H1; subst; clear H1.
-      destruct s. {
+      destruct w. {
         simpl.
         apply accept_any_cons.
         apply accept_any.

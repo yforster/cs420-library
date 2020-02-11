@@ -9,8 +9,8 @@ Require Import Lang.
 Open Scope char_scope. (* Ensure by default we are representing characters. *)
 
 Inductive regex :=
-  | r_void
-  | r_nil
+  | r_void: regex
+  | r_nil: regex
   | r_char: Ascii.ascii -> regex
   | r_app: regex -> regex -> regex
   | r_union: regex -> regex -> regex
@@ -184,7 +184,7 @@ Section Rewrite.
     unfold Equiv; split; intros.
     - inversion H; subst; clear H; auto using union_in_l, union_in_r.
     - apply union_in_inv in H.
-      destruct H; auto using accept_union_l, accept_union_r.
+      destruct H; rewrite <- Lang.in_def in *; auto using accept_union_l, accept_union_r.
   Qed.
 
   Lemma r_app_rw:
@@ -197,6 +197,7 @@ Section Rewrite.
     - apply app_in_inv in H.
       destruct H as (w1, (w2, (H1, (H2, H3)))).
       subst.
+      rewrite <- Lang.in_def in *.
       eauto using accept_app.
   Qed.
 
@@ -416,6 +417,7 @@ Section Sigma.
       apply any_in.
     - apply any_in_inv in H.
       destruct H as (c, ?).
+      rewrite <- Lang.in_def.
       subst.
       auto using accept_any.
   Qed.
@@ -738,7 +740,7 @@ Section REquiv.
   Qed.
 
   Lemma r_pow_succ_equiv:
-    forall n r1 r2, 
+    forall n r1 r2,
     r1 <==> r2 ->
     r_pow r1 n <==> r_pow r2 n ->
     r_pow r1 (S n) <==> r_pow r2 (S n).
