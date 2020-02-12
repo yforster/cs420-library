@@ -27,7 +27,7 @@ Foundations book](https://softwarefoundations.cis.upenn.edu/lf-current/Induction
 
 To install the Turing library with make run these commands:
 ```bash
-$ ./configure.sh
+$ coq_makefile -f _CoqProject -o Makefile # or run: ./configure.sh
 $ make install
 ```
 
