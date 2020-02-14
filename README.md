@@ -14,24 +14,27 @@ Tiago's [archives of Fall'20](https://cogumbreiro.github.io/teaching/cs420/s20/)
 to access the teaching material.
 # Installation
 
-## Using CoqIDE
 
-The overall instructions follow similar steps than [those of the Software
-Foundations book](https://softwarefoundations.cis.upenn.edu/lf-current/Induction.html).
-
-1. Copy your source files to directory `src`.
-2. If you require `Turing.Util`, then, in CoqIDE, open `Util.v`; then, in the
-   "Compile" menu, click on "Compile Buffer".
-
-## Using `make`
-
-To install the Turing library with make run these commands:
+To install the Turing library in your system run these commands:
 ```bash
-$ coq_makefile -f _CoqProject -o Makefile # or run: ./configure.sh
+$ coq_makefile -f _CoqProject -o Makefile # You may also run: ./configure.sh
+$ make
 $ make install
 ```
 
-You can now use any Turing module in any source file you write.
+Module `Turing` should now be available to `Require` in CoqIDE/coqc.
+
+# Updating
+
+**Make sure you have already installed `Turing` in your system.**
+
+Then, run the following commands:
+
+```bash
+$ git pull
+$ make
+$ make install
+```
 
 # Coverage
 
