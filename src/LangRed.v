@@ -494,7 +494,7 @@ End E_TM. (* --------------------------------------------------------------- *)
       let (w1, w2) := decode_pair p in
       let M1 := decode_machine w1 in
       let M2 := decode_machine w2 in
-      Lang M1 ≡ Lang M2.
+      Equiv (Lang M1) (Lang M2).
 
     Local Definition F1 p :=
       let (M, w) := decode_machine_input p in
