@@ -4,11 +4,12 @@ environment:
 init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
   - ps: iex (new-object net.webclient).downloadstring('https://get.scoop.sh')
-  - ps: scoop install coq
+  - ps: scoop install coq@8.11.0
 
 build_script:
   - ps: dir
   - ps: .\build.ps1
+  - ps: dir "$env:SCOOP"
 
 artifacts:
   - path: _build/turing.zip
