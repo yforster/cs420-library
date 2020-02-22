@@ -9,4 +9,7 @@ init:
 build_script:
   - ps: dir
   - ps: .\build.ps1
-  - ps: '& ".\build.ps1"'
+
+artifacts:
+  - path: _build/turing.zip
+    name: Turing

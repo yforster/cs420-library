@@ -40,3 +40,8 @@ foreach($line in $Files.values) {
   Copy-Ext $v_file $target_dir ".vo"
   Copy-Ext $v_file $target_dir ".glob"
 }
+
+& {
+  cd _build;
+  7z -r a turing.zip Turing
+}
