@@ -1,0 +1,7 @@
+VERSION ?= -$(shell git rev-parse HEAD)
+bdist:
+	rm -rf _build/Turing
+	$(MAKE) install COQLIBINSTALL=$(PWD)/_build
+	(cd _build; tar -vcf turing$(VERSION).tar.bz2 Turing)
+	@echo ""
+	@ls _build/turing$(VERSION).tar.bz2

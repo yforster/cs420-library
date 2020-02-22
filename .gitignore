@@ -1,4 +1,6 @@
 *.vo
+*.vok
+*.vos
 *.glob
 *.aux
 \#*
@@ -6,3 +8,5 @@
 /.coqdeps.d
 /Makefile
 /Makefile.conf
+/_build
+/.Makefile.d

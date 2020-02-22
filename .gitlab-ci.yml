@@ -1,10 +1,12 @@
 ---
-image: coqorg/coq:8.10
 
 before_script:
   - eval $(opam config env)
   - ./configure.sh
 
-test:
+build:8.11.0:
+  image: coqorg/coq:8.11.0
   script:
-    - make
+    - make bdist VERSION=-8.11.0
+  artifacts:
+    paths: [_build/turing-8.11.0.tar.bz2]
