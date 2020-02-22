@@ -19,7 +19,7 @@ to access the teaching material.
 |---------------|
 | [Download Turing for Coq 8.11.0](https://gitlab.com/cogumbreiro/turing/-/jobs/artifacts/master/raw/build/turing-8.11.0.tar.bz2?job=build-dist&inline=false) |
 | [Download Turing for Coq 8.10.2 ](https://gitlab.com/cogumbreiro/turing/-/jobs/artifacts/master/raw/build/turing-8.10.2.tar.bz2?job=build-dist&inline=false) |
-| [Download Turing for Coq 8.10.0](https://gitlab.com/cogumbreiro/turing/-/jobs/artifacts/master/raw/build/turing-8.10.tar.bz2?job=build-dist&inline=false) |
+| [Download Turing for Coq 8.10.0](https://gitlab.com/cogumbreiro/turing/-/jobs/artifacts/master/raw/build/turing-8.10.0.tar.bz2?job=build-dist&inline=false) |
 
 1. Identify your version of Coq/CoqIDE
 2. Locate directory `user-contrib` inside your Coq installation

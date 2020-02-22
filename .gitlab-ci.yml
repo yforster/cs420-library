@@ -5,34 +5,28 @@ before_script:
   - ./configure.sh
 
 build:8.10:
-  variables:
-    COQ: 8.10
-  image: coqorg/coq:$COQ
+  image: coqorg/coq:8.10
   script:
     - make
     - make bdist VERSION=
-    - mv _build/turing.tar.bz2 turing-coq-$COQ.tar.bz2
+    - mv _build/turing.tar.bz2 turing-coq-8.10.0.tar.bz2
   artifacts:
-    paths: [turing-coq-$COQ.tar.bz2]
+    paths: [turing-coq-8.10.0.tar.bz2]
 
 build:8.11.0:
-  variables:
-    COQ: 8.11.0
-  image: coqorg/coq:$COQ
+  image: coqorg/coq:8.11.0
   script:
     - make
     - make bdist VERSION=
-    - mv _build/turing.tar.bz2 turing-coq-$COQ.tar.bz2
+    - mv _build/turing.tar.bz2 turing-coq-8.11.0.tar.bz2
   artifacts:
-    paths: [turing-coq-$COQ.tar.bz2]
+    paths: [turing-coq-8.11.0.tar.bz2]
 
 build:8.10.2:
-  variables:
-    COQ: 8.10.2
-  image: coqorg/coq:$COQ
+  image: coqorg/coq:8.10.2
   script:
     - make
     - make bdist VERSION=
-    - mv _build/turing.tar.bz2 turing-coq-$COQ.tar.bz2
+    - mv _build/turing.tar.bz2 turing-coq-8.10.2.tar.bz2
   artifacts:
-    paths: [turing-coq-$COQ.tar.bz2]
+    paths: [turing-coq-8.10.2.tar.bz2]
