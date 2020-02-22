@@ -5,4 +5,8 @@ init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
   - ps: iex (new-object net.webclient).downloadstring('https://get.scoop.sh')
   - ps: scoop install coq
+
+build_script:
+  - ps: dir
   - ps: .\build.ps1
+  - ps: '& ".\build.ps1"'
