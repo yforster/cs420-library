@@ -12,6 +12,20 @@ support teaching an undergraduate course on Theory of Computing, [CS 420, at UMa
 Boston](https://www.umb.edu/course_catalog/course_info/ugrd_CS_all_420). See
 Tiago's [archives of Fall'20](https://cogumbreiro.github.io/teaching/cs420/s20/)
 to access the teaching material.
+
+# Quick install
+
+| Download Link |
+|---------------|
+| [Download Turing for Coq 8.11.0](https://gitlab.com/cogumbreiro/turing/-/jobs/artifacts/master/raw/build/turing-8.11.0.tar.bz2?job=build-dist&inline=false) |
+| [Download Turing for Coq 8.10.2 ](https://gitlab.com/cogumbreiro/turing/-/jobs/artifacts/master/raw/build/turing-8.10.2.tar.bz2?job=build-dist&inline=false) |
+| [Download Turing for Coq 8.10.0](https://gitlab.com/cogumbreiro/turing/-/jobs/artifacts/master/raw/build/turing-8.10.tar.bz2?job=build-dist&inline=false) |
+
+1. Identify your version of Coq/CoqIDE
+2. Locate directory `user-contrib` inside your Coq installation
+3. Extract the contents of the above archive inside directory `user-contrib`
+
+
 # Installation
 
 
