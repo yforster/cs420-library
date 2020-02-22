@@ -9,7 +9,7 @@ init:
 build_script:
   - ps: dir
   - ps: .\build.ps1
-  - ps: dir "$env:SCOOP\apps\coq\8.11.0"
+  - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib"
 
 artifacts:
   - path: _build/turing.zip
