@@ -1,0 +1,15 @@
+{
+    "homepage": "https://gitlab.com/cogumbreiro/turing/",
+    "description": "The foundations of the Theory of Computation formalized in Coq.",
+    "license": "MIT",
+    "version": "2020.02.1",
+    "url": "https://cogumbreiro.github.io/teaching/cs420/s20/turing.zip",
+    "hash": "0f055513172083c350c3883f0e828db75754ab85c26a526125467501ec61b0e3",
+    "depends": "coq",
+    "installer": {
+        "script": "Expand-7zipArchive -Overwrite Skip \"$dir\\$fname\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\""
+    },
+    "uninstaller": {
+        "script": "Remove-Item \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\\Turing\""
+    }
+}
