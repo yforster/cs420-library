@@ -9,9 +9,9 @@ init:
 build_script:
   - ps: dir
   - ps: scoop install .\scoop\turing.json
-  - ps: Get-Content "~\scoop\apps\turing\2020.02.1\7zip.log"
-
-#  - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib\coq\user-contrib"
+  - ps: dir "~\scoop\apps\turing\2020.02.1\"
+  - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib\coq\user-contrib\Turing"
+#      "script": "Expand-7zipArchive -Overwrite Skip \"$dir\\$fname\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\""
 #  - ps: .\build.ps1
 #  - ps: cd ..
 #  - ps: dir

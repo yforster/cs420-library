@@ -7,9 +7,9 @@
     "hash": "0f055513172083c350c3883f0e828db75754ab85c26a526125467501ec61b0e3",
     "depends": "coq",
     "installer": {
-        "script": "Expand-7zipArchive -Overwrite Skip \"$dir\\$fname\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\""
+      "script": "Copy-Item \"$dir\\Turing\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\" -Force -Recurse"
     },
     "uninstaller": {
-        "script": "Remove-Item \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\\Turing\""
+      "script": "Remove-Item \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\\Turing\""
     }
 }
