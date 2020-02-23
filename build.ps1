@@ -44,4 +44,5 @@ foreach($line in $Files.values) {
 & {
   cd _build;
   7z -r a turing.zip Turing
+  cd ..
 }
