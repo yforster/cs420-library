@@ -9,8 +9,8 @@ init:
 build_script:
   - ps: dir
   - ps: .\build.ps1
-  - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib\coq\user-contrib"
-  - ps: scoop install scoop\turing.json
+  - ps: scoop install .\scoop\turing.json
+#  - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib\coq\user-contrib"
 
 artifacts:
   - path: _build/turing.zip
