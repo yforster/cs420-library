@@ -9,11 +9,13 @@ init:
 build_script:
   - ps: dir
   - ps: scoop install .\scoop\turing.json
-#  - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib\coq\user-contrib"
-  - ps: .\build.ps1
-  - ps: cd ..
-  - ps: dir
+  - ps: Get-Content "~\scoop\apps\turing\2020.02.1\7zip.log"
 
-artifacts:
-  - path: _build/turing.zip
-    name: Turing
+#  - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib\coq\user-contrib"
+#  - ps: .\build.ps1
+#  - ps: cd ..
+#  - ps: dir
+
+#artifacts:
+#  - path: _build/turing.zip
+#    name: Turing
