@@ -190,6 +190,31 @@ Section Defs.
     + reflexivity.
   Qed.
 
+  Lemma app_l_all_in_skip:
+    forall (L:language) w,
+    In w L ->
+    In w (App All L).
+  Proof.
+    intros.
+    apply app_in with (w1:=[]) (w2:=w).
+    + apply all_in.
+    + assumption.
+    + reflexivity.
+  Qed.
+
+  Lemma app_r_all_in_skip:
+    forall (L:language) w,
+    In w L ->
+    In w (App L All).
+  Proof.
+    intros.
+    apply app_in with (w1:=w) (w2:=[]).
+    + assumption.
+    + apply all_in.
+    + rewrite app_nil_r.
+      reflexivity.
+  Qed.
+
   Lemma app_r_all_in:
     forall (L:language) w1 w2,
     In w1 L ->
@@ -229,6 +254,7 @@ Section Defs.
     exists w1.
     auto.
   Qed.
+
 
   (** Union on languages *)
 
@@ -1166,10 +1192,14 @@ Module Examples.
      
       To work around the issue use nil to represent the empty string.
      *)
-    apply app_in with (w1:=nil) (w2:=["a"]). (* When using lists use nil to represent  *)
+    apply app_in with (w1:=[]) (w2:=["a"]). (* When using lists use nil to represent  *)
     + apply all_in.
     + apply char_in.
     + auto.
+    (* Alternative proof:
+    apply app_l_all_in_skip.
+    apply char_in.
+    *)
   Qed.
 
   (** Show that the empty string is not in L1. *)
