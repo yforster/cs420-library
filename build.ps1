@@ -79,7 +79,7 @@ if (-not ( Test-Path -Path $target_dir -PathType Container )) {
 function Infer-Deps {
   if ($CoqDep) {
     # We do have coqdep, so we can run it
-    $deps_file = "$build_dir/deps.dot"
+    $deps_file = Join-Path -Path $build_dir -ChildPath "deps.dot"
     # Generate the dependencies
     Invoke-Expression "$CoqDep -f _CoqProject -dumpgraph $deps_file" | Out-Null
     Parse-Deps $deps_file
@@ -105,7 +105,7 @@ foreach($line in $Proj.Files.values) {
   Copy-Ext $v_file $target_dir ".vo"
   Copy-Ext $v_file $target_dir ".glob"
 }
-
-cd _build;
-7z -r a turing.zip Turing
-cd ..
+$out_file = Join-Path -Path (Resolve-Path $build_dir) -ChildPath "turing.zip"
+$Command = "7z a -r -bb -tzip -w$target_dir $out_file Turing"
+Write-Host $Command
+Invoke-Expression $Command
