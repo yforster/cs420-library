@@ -97,7 +97,6 @@ function Infer-Deps {
 foreach($line in $Proj.Files.values) {
   $Command = "coqc $($Proj.Args) $line"
   Write-Host $Command
-  continue
   # Compile each file
   Invoke-Expression $Command
   $v_file = Get-Item $line
@@ -105,7 +104,11 @@ foreach($line in $Proj.Files.values) {
   Copy-Ext $v_file $target_dir ".vo"
   Copy-Ext $v_file $target_dir ".glob"
 }
+
 $out_file = Join-Path -Path (Resolve-Path $build_dir) -ChildPath "turing.zip"
-$Command = "7z a -r -bb -tzip -w$target_dir $out_file Turing"
+pushd $build_dir
+$Command = "7z a -r -bb -tzip $out_file Turing"
+dir Turing
 Write-Host $Command
 Invoke-Expression $Command
+popd
