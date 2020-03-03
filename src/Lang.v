@@ -227,6 +227,15 @@ Section Defs.
     + reflexivity.
   Qed.
 
+  Lemma app_l_any_in:
+    forall c w L,
+    In w L ->
+    In (c::w) (App Any L).
+  Proof.
+    intros.
+    apply app_in with (w1:=[c]) (w2:=w); auto using any_in.
+  Qed.
+
   Lemma app_l_char_in_inv:
     forall c L w,
     In w (App (Char c) L) ->
@@ -252,6 +261,24 @@ Section Defs.
     apply char_in_inv in Hb.
     subst.
     exists w1.
+    auto.
+  Qed.
+
+
+  Lemma app_l_any_in_inv:
+    forall w L,
+    In w (App Any L) ->
+    exists w' c, w = c :: w' /\ In w' L.
+  Proof.
+    intros.
+    apply app_in_inv in H.
+    destruct H as (w1, (w2, (?, (Ha, Hb)))).
+    subst.
+    apply any_in_inv in Ha.
+    destruct Ha as (c, ?).
+    subst.
+    exists w2.
+    exists c.
     auto.
   Qed.
 
@@ -1190,7 +1217,7 @@ Module Examples.
   Qed.
 
   (** Show that string "a" is in L1. *)
-  Goal Lang.In ["a"] L1.
+  Lemma a_in_l1: Lang.In ["a"] L1.
   Proof.
     unfold L1.
     (*
@@ -1212,19 +1239,17 @@ Module Examples.
   Qed.
 
   (** Show that we can rewrite under In *)
-  Goal Lang.In ["a"] (L1 U {}).
+  Lemma a_in_l1_void: Lang.In ["a"] (L1 U {}).
   Proof.
     (* We recall that we can simplify the language by descarding {} *)
     Search (_ U {}).
     (* union_r_void_rw: forall L : language, L U {} == L *)
     rewrite union_r_void_rw.
-    (* We now prove using the shorter proof: *)
-    apply app_l_all_in_skip.
-    apply char_in.
+    apply a_in_l1.
   Qed.
 
   (** Show that the empty string is not in L1. *)
-  Goal ~ Lang.In [] L1.
+  Lemma nil_not_in_l1: ~ Lang.In [] L1.
   Proof.
     unfold L1; intros N.
     apply app_in_inv in N.
@@ -1242,7 +1267,7 @@ Module Examples.
 
   (** Show that string "bbba" is L1 *)
 
-  Goal Lang.In ["b"; "b"; "b"; "a"] L1.
+  Lemma bbba_in_l1: Lang.In ["b"; "b"; "b"; "a"] L1.
   Proof.
     unfold L1.
     apply app_in with (w1:=["b"; "b"; "b"]) (w2:=["a"]).
@@ -1253,8 +1278,44 @@ Module Examples.
 
   Definition L2 : language := fun w => length w = 2.
 
+  (** Show that L2 can be described as concatenating two Any-characters. *)
+  Lemma l2_spec:
+    L2 == Any >> Any.
+  Proof.
+    unfold Examples.L2; split; intros.
+    - unfold Lang.In in H.
+      (* We know that w has length 2, but we must do a case analysis to look
+         at its structure. *)
+      destruct w. {
+        (* Impossible because w = [] *)
+        inversion H.
+      }
+      (* w <> [] *)
+      (* Let us try to get the remaining character. *)
+      destruct w. {
+        (* Impossible because w = [a] *)
+        inversion H.
+      }
+      destruct w. {
+        (* The only possible case where the list has exactly 2 elements. *)
+        Search (App Any _).
+        apply app_l_any_in.
+        apply any_in.
+      }
+      (* This case is impossible because the list has at least 3 elements. *)
+      inversion H.
+    - Search (Any >> _).
+      apply app_l_any_in_inv in H.
+      destruct H as (w', (c1, (?, Hi))).
+      subst.
+      apply any_in_inv in Hi.
+      destruct Hi as (c2, ?).
+      subst.
+      reflexivity.
+  Qed.
+
   (** Show that string "01" is in L2. *)
-  Goal Lang.In ["0"; "1"] L2.
+  Lemma _01_in_l2: Lang.In ["0"; "1"] L2.
   Proof.
     unfold L2.
     reflexivity.
@@ -1312,7 +1373,7 @@ Module Examples.
   Qed.
 
   (** L4 accepts the empty string. *)
-  Goal Lang.In [] L4.
+  Lemma nil_in_l4: Lang.In [] L4.
   Proof.
     unfold L4.
     exists 0.
@@ -1323,7 +1384,7 @@ Module Examples.
   Qed.
 
   (** L4 accepts a single a and a single b. *)
-  Goal Lang.In ["a"; "a"; "b"; "b"] L4.
+  Lemma aabb_in_l4: Lang.In ["a"; "a"; "b"; "b"] L4.
   Proof.
     exists 2.
     apply app_in with (w1:=["a"; "a"]) (w2:=["b"; "b"]).
@@ -1334,7 +1395,7 @@ Module Examples.
     + reflexivity.
   Qed.
 
-  Goal ~ Lang.In ["a"; "b"; "b"] L4.
+  Lemma abb_not_in_l4: ~ Lang.In ["a"; "b"; "b"] L4.
   Proof.
     unfold L4;
     intros N.
@@ -1356,7 +1417,7 @@ Module Examples.
 
   (** Show that this random string is not in L4 *)
 
-  Goal ~ Lang.In ["c"; "a"; "r"] L4.
+  Lemma car_not_in_l4: ~ Lang.In ["c"; "a"; "r"] L4.
   Proof.
     unfold L4.
     intros N.

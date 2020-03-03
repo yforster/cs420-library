@@ -424,7 +424,7 @@ Section Sigma.
 
   (** Any word is in [r_all] *)
 
-  Definition r_all := r_star r_any.
+  Definition r_all : regex := r_star r_any.
 
   Lemma r_all_rw:
     Equiv (Accept r_all) All.
@@ -1039,4 +1039,168 @@ Section Props.
     assumption.
   Qed.
 
+  Fixpoint as_lang r :=
+  match r with
+  | r_void => Void
+  | r_nil => Nil
+  | r_char c => Char c
+  | r_app r1 r2 => App (as_lang r1) (as_lang r2)
+  | r_union r1 r2 => Union (as_lang r1) (as_lang r2)
+  | r_star r => Star (as_lang r)
+  end.
+
+  Lemma as_lang_rw:
+    forall r,
+    Equiv (Accept r) (as_lang r).
+  Proof.
+    induction r; simpl.
+    - rewrite r_void_rw.
+      reflexivity.
+    - rewrite r_nil_rw.
+      reflexivity.
+    - rewrite r_char_rw.
+      reflexivity.
+    - rewrite <- IHr1.
+      rewrite <- IHr2.
+      rewrite r_app_rw.
+      reflexivity.
+    - rewrite <- IHr2.
+      rewrite <- IHr1.
+      rewrite r_union_rw.
+      reflexivity.
+    - rewrite <- IHr.
+      rewrite r_star_rw.
+      reflexivity.
+  Qed.
+
 End Props.
+
+
+Module Examples.
+  Import Ascii.
+  Import List.
+  Import ListNotations.
+  Import Util.
+  Import LangNotations.
+  Import RegexNotations.
+  Open Scope lang_scope.
+  Open Scope char_scope. (* Ensure by default we are representing characters. *)
+  
+  (** Any string that ends with "a" *)
+  Definition R1 : regex := r_all ;; "a".
+
+  (** Show that the notation above is equivalent to writing a more direct, yet
+     more verbose notation: *)
+  Lemma r1_spec:
+    (Accept R1) == Lang.Examples.L1.
+  Proof.
+    unfold Lang.Examples.L1, R1.
+    rewrite r_app_rw.
+    rewrite r_all_rw.
+    rewrite r_char_rw.
+    reflexivity.
+  Qed.
+
+  (** Show that string "a" is in L1. *)
+  Lemma a_in_r1: ["a"] \in R1.
+  Proof.
+    unfold R1.
+    (*
+      You will note that r_all is a *derived* construct, which is constructed
+      in terms of applying star to the any regex.
+      The any regex (\Sigma) is defined as the union of all possibly characters.
+      As such, one must be careful handling r_all because it is not "opaque"
+      as a data-type constructor.
+      
+      In short, to handle r_all you must use theorems.
+     *)
+    apply accept_app_eq with (s1:=[]) (s2:=["a"]). (* When using lists use nil to represent  *)
+    + apply r_all_in.
+    + apply accept_char.
+  Qed.
+
+  (** Show that we can rewrite under In *)
+  Lemma a_in_r1_void: ["a"] \in (R1 || r_void).
+  Proof.
+    (* We recall that we can simplify the language by descarding {} *)
+    Search (_ || r_void).
+    (* r_union_r_void_rw: forall r : regex, r || r_void <==> r *)
+    rewrite r_union_r_void_rw.
+    (* We now prove using the shorter proof: *)
+    apply a_in_r1.
+  Qed.
+
+  (** Show that the empty string is not in L1. *)
+  Lemma nil_not_in_r1: ~ ([] \in R1).
+  Proof.
+    unfold R1; intros N.
+    (* Since acceptance was inductively defined, we can
+       use inversion directly in our assumptions. *)
+    inversion N; subst; clear N.
+    (* H4: [] = s1 ++ s2 *)
+    (* From (H4) we can conclude that s1=[] and s2=[] *)
+    destruct s1. {
+      (* s1 = [] *)
+      destruct s2. {
+        (* s2 = [] *)
+        (* Note that we now find our contradiction, since [] \in "a",
+           which is impossible *)
+        inversion H2.
+      }
+      (* s2 <> [] *)
+      (* Note the absurd assumption H4: [] = a :: s2 *)
+      inversion H4.
+    }
+    (* s1 <> [] *)
+    (* Note the absurd assumption H4: [] = a :: s2 *)
+    inversion H4.
+  Qed.
+
+  (** Show that string "bbba" is L1 *)
+
+  Goal ["b"; "b"; "b"; "a"] \in R1.
+  Proof.
+    unfold R1.
+    apply accept_app_eq with (s1:=["b"; "b"; "b"]) (s2:=["a"]).
+    - apply r_all_in.
+    - apply accept_char.
+  Qed.
+
+  Definition R2 : regex := r_any ;; r_any.
+
+  Lemma r2_spec:
+    (Accept R2) == Lang.Examples.L2.
+  Proof.
+    unfold R2.
+    (* When comparing against languages, we can rewrite (Accept R) into
+       each corresponding language combinator. *)
+    rewrite r_app_rw in *.
+    rewrite r_any_rw in *.
+    (* Finally we are ready to conclude *)
+    rewrite Examples.l2_spec.
+    reflexivity.
+  Qed.
+
+  (** Show that string "01" is in L2. *)
+  Goal ["0"; "1"] \in R2.
+  Proof.
+    unfold R2.
+    apply accept_any_cons.
+    apply accept_any.
+  Qed.
+
+  Definition R3 : regex := "a" ;; r_all ;; "b".
+
+  Lemma r3_spec:
+    Accept R3 == Examples.L3.
+  Proof.
+    unfold R3.
+    repeat rewrite r_app_rw.
+    repeat rewrite r_char_rw.
+    rewrite r_all_rw.
+    reflexivity.
+  Qed.
+
+  (** L4 cannot be described in terms of regex *)
+
+End Examples.
