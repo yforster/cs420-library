@@ -2,9 +2,9 @@
     "homepage": "https://gitlab.com/cogumbreiro/turing/",
     "description": "The foundations of the Theory of Computation formalized in Coq.",
     "license": "MIT",
-    "version": "2020.02.1",
+    "version": "2020.02.2",
     "url": "https://cogumbreiro.github.io/teaching/cs420/s20/turing.zip",
-    "hash": "0f055513172083c350c3883f0e828db75754ab85c26a526125467501ec61b0e3",
+    "hash": "1f17c87dd73eb7a80fcdd0725bdd04577599dcfb8d74311a56da886ba1dbc58c",
     "depends": "coq",
     "installer": {
       "script": "Copy-Item \"$dir\\Turing\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\" -Force -Recurse"
