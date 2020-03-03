@@ -520,6 +520,15 @@ Section Defs.
 
   Section equiv_proper.
   Import Morphisms.
+
+  Global Instance in_equiv_proper: Proper (eq ==> Equiv ==> iff) In.
+  Proof.
+    unfold Proper, respectful, Equiv.
+    intros.
+    subst.
+    split; intros; apply H0 in H; auto.
+  Qed.
+
   (* Allow rewriting under App *)
   Global Instance app_equiv_proper: Proper (Equiv ==> Equiv ==> Equiv) App.
   Proof.
@@ -1150,9 +1159,9 @@ End Rewrites.
 Module Examples.
   Import Ascii.
   Import List.
-  Import LangNotations.
   Import ListNotations.
   Import Util.
+  Import LangNotations.
   Open Scope lang_scope.
   Open Scope char_scope. (* Ensure by default we are representing characters. *)
 
@@ -1200,6 +1209,18 @@ Module Examples.
     apply app_l_all_in_skip.
     apply char_in.
     *)
+  Qed.
+
+  (** Show that we can rewrite under In *)
+  Goal Lang.In ["a"] (L1 U {}).
+  Proof.
+    (* We recall that we can simplify the language by descarding {} *)
+    Search (_ U {}).
+    (* union_r_void_rw: forall L : language, L U {} == L *)
+    rewrite union_r_void_rw.
+    (* We now prove using the shorter proof: *)
+    apply app_l_all_in_skip.
+    apply char_in.
   Qed.
 
   (** Show that the empty string is not in L1. *)
