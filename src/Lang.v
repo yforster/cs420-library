@@ -230,7 +230,7 @@ Section Defs.
   Lemma app_l_char_in_inv:
     forall c L w,
     In w (App (Char c) L) ->
-    exists w', w = c:: w' /\ L w'.
+    exists w', w = c:: w' /\ In w' L.
   Proof.
     intros.
     apply app_in_inv in H.
@@ -244,7 +244,7 @@ Section Defs.
   Lemma app_r_char_in_inv:
     forall c L w,
     In w (App L (Char c)) ->
-    exists w', w = w' ++ [c] /\ L w'.
+    exists w', w = w' ++ [c] /\ In w' L.
   Proof.
     intros.
     apply app_in_inv in H.
