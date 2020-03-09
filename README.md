@@ -29,12 +29,20 @@ Module `Turing` should now be available to `Require` in CoqIDE/coqc.
 
 **Make sure you have already installed `Turing` in your system.**
 
+## Unix-based OS
+
 Then, run the following commands:
 
 ```bash
 $ git pull
 $ make
 $ make install
+```
+
+## Windows
+
+```bash
+> scoop update https://gitlab.com/cogumbreiro/turing/-/raw/master/scoop/turing.json
 ```
 
 # Coverage
