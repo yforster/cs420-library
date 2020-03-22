@@ -54,20 +54,20 @@ End Props.
 Section Pumping.
   Import Omega.
 
-  Inductive Pump L p (w:word) : Prop :=
+  Inductive Pump (L:language) (p:nat) (w:word) : Prop :=
   | pump_def:
     forall x y z,
     w = x ++ y ++ z ->
     y <> [] ->
     length (x ++ y) <= p ->
-    (forall i, L (x ++ pow y i ++ z)) ->
+    (forall i, In (x ++ pow y i ++ z) L) ->
     Pump L p w.
 
   Lemma rex_pump_to_pump:
     forall L r w,
     Equiv (Accept r) L ->
     RexPump r w ->
-    Pump L (pumping_constant r) w.
+    In w (Pump L (pumping_constant r)).
   Proof.
     intros.
     inversion H0; subst; clear H0.
@@ -81,9 +81,9 @@ Section Pumping.
     forall L,
     Regular L ->
     exists p, p >= 1 /\
-    forall w, L w ->
+    forall w, In w L ->
     length w >= p ->
-    Pump L p w.
+    In w (Pump L p).
   Proof.
     intros.
     inversion H; subst; clear H.
@@ -110,22 +110,22 @@ Section Pumping.
       y <> [] ->
       length (x ++ y) <= p ->
       exists i,
-      ~ L (x ++ (pow y i) ++ z).
+      ~ In (x ++ (pow y i) ++ z) L.
 
   (**
 
   A language is clogged if we can find one word in language [L] that clogs [L].
 
-   w \in L    |w| >= p    Wrench L p w
+   w \in L    |w| >= p    w \in Clogs L p
    -----------------------------------
             L clogged with p
   *)
   Inductive Clogged (L:language) p : Prop :=
   | clogged_word:
     forall w,
-    L w ->
+    In w L ->
     length w >= p ->
-    Clogs L p w ->
+    In w (Clogs L p) ->
     Clogged L p.
   (** Clogged languages are not regular.
       We show that a language is not regular by clogging it for all p >= 1. *)
@@ -142,7 +142,7 @@ Section Pumping.
     inversion H; subst; clear H.
     assert (Hw := Hw w H0 H1).
     inversion Hw; subst; clear Hw.
-    assert (Hi: exists i, ~ L (x ++ (pow y i) ++ z)). {
+    assert (Hi: exists i, ~ In (x ++ (pow y i) ++ z) L). {
       auto.
     }
     destruct Hi as (i, Hi).
@@ -283,7 +283,7 @@ Module Examples.
       reflexivity.
   Qed.
 
-  Lemma l1_not_regular:
+  Lemma l4_not_regular:
     ~ Regular Examples.L4.
   Proof.
     apply not_regular.
@@ -305,8 +305,11 @@ Module Examples.
       exists 2.
       (* Open up the definition of membership in L1 *)
       unfold Examples.L4.
+      unfold In.
       (* We have that there is a word in L1 and we will reach a contradiction *)
       intros N.
+      apply Examples.l4_spec in N.
+      unfold In in N.
       (* Break down some n *)
       destruct N as (n, N).
       (* We don't want pow in N, so we compute function pow with simpl: *)
@@ -314,7 +317,6 @@ Module Examples.
       (* We start working on our assumption H0, this is the first step of the slides:
          There is some b such that lenght (x ++ y) + b = p *)
       apply xyz_rw in H0; auto.
-      (* We no longer need the length, so we ignore that assumption with _ *)
       destruct H0 as (b, (_, Hb)).
       (* We now separate x, y, and z in Hb *)
       apply pow1_plus_xy in Hb.
@@ -334,26 +336,18 @@ Module Examples.
       repeat rewrite app_assoc in *.
       (* Then, we eagerly join the terms with the same base *) 
       repeat rewrite pow1_plus in N.
-      (* We can now conclude that we have x = y and y = w: *)
-      apply pow_pow_in_inv_eq in N. {
-        destruct N as (N1, N2).
-        (* We replace one in the other so that there is no 'n' anymore. *) 
-        subst.
-        (* We note that the left-hand side of both parts match, so we can simplify
-           it in both ends of the equality. First, we put each element in
-           evidence. *)
-        repeat rewrite <- plus_assoc in *.
-        apply plus_inv_eq_r, plus_inv_eq_r in N2.
-        (* We now have to show that |y| + b = b *)
-        apply plus_inv_zero_l in N2.
-        (* But we know that |y| >= 1, so we reach a contradiction *)
-        destruct y. {
-          contradiction.
-        }
-        inversion N2.
+      assert ("a" <> "b") by (intros M; inversion M).
+      apply pow1_a_b_inv_eq in N; auto.
+      destruct N as (L, R).
+      subst.
+      repeat rewrite <- plus_assoc in *.
+      apply plus_inv_eq_r, plus_inv_eq_r in R.
+      (* We now have to show that |y| + b = b *)
+      apply plus_inv_zero_l in R.
+      (* But we know that |y| >= 1, so we reach a contradiction *)
+      destruct y. {
+        contradiction.
       }
-      (* Show that a <> b: *)
-      intros C; inversion C.
+      inversion R.
   Qed.
 End Examples.
-

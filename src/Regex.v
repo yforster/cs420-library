@@ -129,6 +129,55 @@ Proof.
   apply accept_app with (s1:=[c]) (s2:=s); auto using accept_char.
 Qed.
 
+Lemma accept_app_star_skip:
+  forall s r1 r2,
+  s \in r2 ->
+  s \in r_star r1;; r2.
+Proof.
+  intros.
+  apply accept_app with (s1:=[]) (s2:=s).
+  - apply accept_star_nil.
+  - assumption.
+  - reflexivity.
+Qed.
+
+Lemma accept_pow1:
+  forall c i,
+  pow1 c i \in r_star (r_char c).
+Proof.
+  induction i.
+  - apply accept_star_nil.
+  - simpl.
+    apply accept_star_cons with (s1:=[c]) (s2:=pow1 c i).
+    + apply accept_char.
+    + assumption.
+    + reflexivity.
+Qed.
+
+Lemma accept_pow:
+  forall s r i,
+  s \in r ->
+  Util.pow s i \in r_star r.
+Proof.
+  induction i; intros.
+  - apply accept_star_nil.
+  - simpl.
+    apply accept_star_cons with (s1:=s) (s2:=pow s i).
+    + assumption.
+    + auto.
+    + reflexivity.
+Qed.
+
+Lemma accept_pow_char:
+  forall c i,
+  Util.pow [c] i \in r_star (r_char c).
+Proof.
+  intros.
+  apply accept_pow.
+  apply accept_char.
+Qed.
+
+
 Section Union.
   (** [regex] expects union to be a binary-operation. Let us define
       union in terms of a list of regular expressions, rather than just
@@ -580,6 +629,16 @@ Section REquiv.
     unfold REquiv.
     repeat rewrite r_union_rw.
     apply union_assoc_rw.
+  Qed.
+
+  Lemma r_app_assoc_rw:
+    forall r1 r2 r3,
+    r1 ;; (r2 ;; r3) <==> (r1 ;; r2) ;; r3.
+  Proof.
+    intros.
+    unfold REquiv.
+    repeat rewrite r_app_rw.
+    apply app_assoc_rw.
   Qed.
 
   Lemma r_union_sym_rw:

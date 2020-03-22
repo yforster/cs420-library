@@ -3,7 +3,7 @@ Require Coq.Lists.List.
 Require Coq.Setoids.Setoid.
 Require Coq.Relations.Relations.
 Require Coq.Classes.Morphisms.
-Require Util.
+Require Turing.Util.
 
 Open Scope char_scope. (* Ensure by default we are representing characters. *)
 
@@ -1200,17 +1200,22 @@ Module Examples.
   Lemma l1_spec:
     L1 == fun w => exists w', w = w' ++ ["a"].
   Proof.
-    unfold L1; split; intros.
-    - apply app_in_inv in H.
-      destruct H as (w1, (w2, (Hi, (Hj, Hk)))).
+    unfold L1.
+    unfold Equiv.
+    split; intros.
+    - Search (_ >> _).
+      apply app_in_inv in H.
+      destruct H as (wa, (wb, (?, (Ha, Hb)))).
       subst.
-      exists w1.
-      apply char_in_inv in Hk.
+      unfold Lang.In.
+      apply char_in_inv in Hb.
       subst.
+      exists wa.
       reflexivity.
     - unfold Lang.In in H.
-      destruct H as (w', ?).
+      destruct H as (wa, H).
       subst.
+      Search (Lang.In (_ ++ _) ( _ >> _)).
       apply app_in_eq.
       + apply all_in.
       + apply char_in.
