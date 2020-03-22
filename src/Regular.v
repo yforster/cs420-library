@@ -338,16 +338,19 @@ Module Examples.
   Qed.
 
   Lemma l4_not_regular:
-    ~ Regular Lang.Examples.L4.
+    ~ Regular Turing.Lang.Examples.L4.
   Proof.
     apply not_regular.
     intros.
-    rewrite Examples.l4_spec.
+    rewrite Turing.Lang.Examples.l4_spec.
     (* We pick our word: *)
     apply clogged_def with (w:=(pow1 "a" p ++ pow1 "b" p) % list).
-    - exists p.
+    - unfold In.
+      exists p.
       reflexivity.
-    - rewrite app_length.
+    - Search (length (_ ++ _)).
+      rewrite app_length.
+      Search (length (pow1 _ _)).
       rewrite pow1_length.
       omega.
     - unfold In.
@@ -364,7 +367,8 @@ Module Examples.
       (* We don't want pow in N, so we compute function pow with simpl: *)
       simpl in N.
       (* We remove the ++ [] *)
-      rewrite <- app_nil_end in *.
+      Search (_ ++ []).
+      rewrite app_nil_r in N.
       (* We start working on our assumption H0, this is the first step of the slides:
          There is some b such that lenght (x ++ y) + b = p *)
       apply xyz_rw in H0; auto.
@@ -391,7 +395,8 @@ Module Examples.
       destruct N as (L, R).
       subst.
       repeat rewrite <- plus_assoc in *.
-      apply plus_inv_eq_r, plus_inv_eq_r in R.
+      apply plus_inv_eq_r in R.
+      apply plus_inv_eq_r in R.
       (* We now have to show that |y| + b = b *)
       apply plus_inv_zero_l in R.
       (* But we know that |y| >= 1, so we reach a contradiction *)
