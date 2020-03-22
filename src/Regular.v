@@ -121,7 +121,7 @@ Section Pumping.
             L clogged with p
   *)
   Inductive Clogged (L:language) p : Prop :=
-  | clogged_word:
+  | clogged_def:
     forall w,
     In w L ->
     length w >= p ->
@@ -148,6 +148,60 @@ Section Pumping.
     destruct Hi as (i, Hi).
     contradict Hi.
     auto.
+  Qed.
+
+  Lemma equiv_clogs_impl:
+    forall n L1 L2,
+    Equiv L1 L2 ->
+    Equiv (Clogs L1 n) (Clogs L2 n).
+  Proof.
+    intros.
+    unfold Clogs; split; unfold In; intros; subst.
+    - assert (H0 := H0 x y z eq_refl H2 H3).
+      destruct H0 as (i, Hx).
+      exists i.
+      intros N.
+      contradict Hx.
+      apply H.
+      assumption.
+    - assert (H0 := H0 x y z eq_refl H2 H3).
+      destruct H0 as (i, Hx).
+      exists i.
+      intros N.
+      contradict Hx.
+      apply H.
+      assumption.
+  Qed.
+
+  Lemma equiv_clogged:
+    forall L1 L2 p,
+    Equiv L1 L2 ->
+    Clogged L1 p ->
+    Clogged L2 p.
+  Proof.
+    intros.
+    inversion H0; subst; clear H0.
+    apply clogged_def with (w:=w).
+    - apply H.
+      assumption.
+    - assumption.
+    - apply equiv_clogs_impl with (n:=p) in H.
+      rewrite <- H.
+      assumption.
+  Qed.
+
+  Import Morphisms.
+  Global Instance rw_equiv_proper: Proper (Equiv ==> eq ==> iff) Clogged.
+  Proof.
+    unfold Proper.
+    unfold respectful.
+    intros.
+    subst.
+    split; intros.
+    - eapply equiv_clogged; eauto.
+    - eapply equiv_clogged; eauto.
+      symmetry.
+      assumption.
   Qed.
 
 End Pumping.
@@ -284,36 +338,33 @@ Module Examples.
   Qed.
 
   Lemma l4_not_regular:
-    ~ Regular Examples.L4.
+    ~ Regular Lang.Examples.L4.
   Proof.
     apply not_regular.
     intros.
+    rewrite Examples.l4_spec.
     (* We pick our word: *)
-    apply clogged_word with (w:=(pow1 "a" p ++ pow1 "b" p) % list).
-    - unfold Examples.L4.
-      exists p.
-      (* Split app *)
-      apply app_in_eq.
-      + apply pow_char_in.
-      + apply pow_char_in.
+    apply clogged_def with (w:=(pow1 "a" p ++ pow1 "b" p) % list).
+    - exists p.
+      reflexivity.
     - rewrite app_length.
       rewrite pow1_length.
       omega.
-    - unfold Clogs.
+    - unfold In.
+      unfold Clogs.
       intros.
       (* Goal 3: *)
       exists 2.
-      (* Open up the definition of membership in L1 *)
-      unfold Examples.L4.
+      (* Open up the definition of In *)
       unfold In.
-      (* We have that there is a word in L1 and we will reach a contradiction *)
+      (* We have that there is a word in L4 and we will reach a contradiction *)
       intros N.
-      apply Examples.l4_spec in N.
-      unfold In in N.
       (* Break down some n *)
       destruct N as (n, N).
       (* We don't want pow in N, so we compute function pow with simpl: *)
       simpl in N.
+      (* We remove the ++ [] *)
+      rewrite <- app_nil_end in *.
       (* We start working on our assumption H0, this is the first step of the slides:
          There is some b such that lenght (x ++ y) + b = p *)
       apply xyz_rw in H0; auto.
@@ -322,7 +373,6 @@ Module Examples.
       apply pow1_plus_xy in Hb.
       destruct Hb as (Hx, Hyz).
       symmetry in Hyz.
-      rewrite <- app_nil_end in *.
       apply pow1_plus_xy in Hyz.
       destruct Hyz as (Hy, Hz).
       (* We now know what x, y, and z are.

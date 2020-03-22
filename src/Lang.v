@@ -1352,7 +1352,7 @@ Module Examples.
 
   (** We define the language in terms of the Pow and App combinators. *)
 
-  Definition L4 := fun w => exists n, ("a" ^^ n >> "b" ^^ n) w.
+  Definition L4 := fun w => exists n, Lang.In w ("a" ^^ n >> "b" ^^ n).
 
   (** We then show that this correspond to our expectation of when not using
       combinators: *)
