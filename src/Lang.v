@@ -4,6 +4,8 @@ Require Coq.Setoids.Setoid.
 Require Coq.Relations.Relations.
 Require Coq.Classes.Morphisms.
 Require Turing.Util.
+Require Import Coq.Lists.List. 
+Import Coq.Lists.List.ListNotations.
 
 Open Scope char_scope. (* Ensure by default we are representing characters. *)
 
@@ -917,9 +919,9 @@ Section Rewrites.
       assert (All w) by auto using all_in.
       destruct IHw as (n, Hp); auto.
       exists (S n).
-      rewrite Lang.in_def in *.
+      rewrite in_def in *.
       apply pow_cons with (w1:=[a]) (w2:=w); auto.
-      rewrite Lang.in_def.
+      rewrite in_def.
       auto using any_in.
   Qed.
 
@@ -1185,8 +1187,6 @@ End Rewrites.
 
 Module Examples.
   Import Ascii.
-  Import List.
-  Import ListNotations.
   Import Util.
   Import LangNotations.
   Open Scope lang_scope.
@@ -1207,22 +1207,22 @@ Module Examples.
       apply app_in_inv in H.
       destruct H as (wa, (wb, (?, (Ha, Hb)))).
       subst.
-      unfold Lang.In.
+      unfold In.
       apply char_in_inv in Hb.
       subst.
       exists wa.
       reflexivity.
-    - unfold Lang.In in H.
+    - unfold In in H.
       destruct H as (wa, H).
       subst.
-      Search (Lang.In (_ ++ _) ( _ >> _)).
+      Search (In (_ ++ _) ( _ >> _)).
       apply app_in_eq.
       + apply all_in.
       + apply char_in.
   Qed.
 
   (** Show that string "a" is in L1. *)
-  Lemma a_in_l1: Lang.In ["a"] L1.
+  Lemma a_in_l1: In ["a"] L1.
   Proof.
     unfold L1.
     (*
@@ -1244,7 +1244,7 @@ Module Examples.
   Qed.
 
   (** Show that we can rewrite under In *)
-  Lemma a_in_l1_void: Lang.In ["a"] (L1 U {}).
+  Lemma a_in_l1_void: In ["a"] (L1 U {}).
   Proof.
     (* We recall that we can simplify the language by descarding {} *)
     Search (_ U {}).
@@ -1254,7 +1254,7 @@ Module Examples.
   Qed.
 
   (** Show that the empty string is not in L1. *)
-  Lemma nil_not_in_l1: ~ Lang.In [] L1.
+  Lemma nil_not_in_l1: ~ In [] L1.
   Proof.
     unfold L1; intros N.
     apply app_in_inv in N.
@@ -1272,7 +1272,7 @@ Module Examples.
 
   (** Show that string "bbba" is L1 *)
 
-  Lemma bbba_in_l1: Lang.In ["b"; "b"; "b"; "a"] L1.
+  Lemma bbba_in_l1: In ["b"; "b"; "b"; "a"] L1.
   Proof.
     unfold L1.
     apply app_in with (w1:=["b"; "b"; "b"]) (w2:=["a"]).
@@ -1288,7 +1288,7 @@ Module Examples.
     L2 == Any >> Any.
   Proof.
     unfold Examples.L2; split; intros.
-    - unfold Lang.In in H.
+    - unfold In in H.
       (* We know that w has length 2, but we must do a case analysis to look
          at its structure. *)
       destruct w. {
@@ -1320,7 +1320,7 @@ Module Examples.
   Qed.
 
   (** Show that string "01" is in L2. *)
-  Lemma _01_in_l2: Lang.In ["0"; "1"] L2.
+  Lemma _01_in_l2: In ["0"; "1"] L2.
   Proof.
     unfold L2.
     reflexivity.
@@ -1340,7 +1340,7 @@ Module Examples.
       simpl.
       exists w2.
       reflexivity.
-    - unfold Lang.In in H.
+    - unfold In in H.
       destruct H as (w', ?).
       subst.
       simpl.
@@ -1352,7 +1352,7 @@ Module Examples.
 
   (** We define the language in terms of the Pow and App combinators. *)
 
-  Definition L4 := fun w => exists n, Lang.In w ("a" ^^ n >> "b" ^^ n).
+  Definition L4 := fun w => exists n, In w ("a" ^^ n >> "b" ^^ n).
 
   (** We then show that this correspond to our expectation of when not using
       combinators: *)
@@ -1378,7 +1378,7 @@ Module Examples.
   Qed.
 
   (** L4 accepts the empty string. *)
-  Lemma nil_in_l4: Lang.In [] L4.
+  Lemma nil_in_l4: In [] L4.
   Proof.
     unfold L4.
     exists 0.
@@ -1389,7 +1389,7 @@ Module Examples.
   Qed.
 
   (** L4 accepts a single a and a single b. *)
-  Lemma aabb_in_l4: Lang.In ["a"; "a"; "b"; "b"] L4.
+  Lemma aabb_in_l4: In ["a"; "a"; "b"; "b"] L4.
   Proof.
     exists 2.
     apply app_in with (w1:=["a"; "a"]) (w2:=["b"; "b"]).
@@ -1400,7 +1400,7 @@ Module Examples.
     + reflexivity.
   Qed.
 
-  Lemma abb_not_in_l4: ~ Lang.In ["a"; "b"; "b"] L4.
+  Lemma abb_not_in_l4: ~ In ["a"; "b"; "b"] L4.
   Proof.
     unfold L4;
     intros N.
@@ -1422,7 +1422,7 @@ Module Examples.
 
   (** Show that this random string is not in L4 *)
 
-  Lemma car_not_in_l4: ~ Lang.In ["c"; "a"; "r"] L4.
+  Lemma car_not_in_l4: ~ In ["c"; "a"; "r"] L4.
   Proof.
     unfold L4.
     intros N.

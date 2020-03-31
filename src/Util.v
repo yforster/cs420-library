@@ -196,7 +196,8 @@ Proof.
   assert (Hx := H0).
   apply pow1_app_inv_eq_1 in H0; auto.
   subst.
-  apply pow1_app_inv_eq_2 in Hx.
+  apply app_inv_eq_l in Hx.
+  apply pow1_inv_eq in Hx.
   auto.
 Qed.
 
