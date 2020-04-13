@@ -10,9 +10,9 @@ Require Coq.Relations.Relations.
 
 Require Coq.omega.Omega.
 Import ListNotations.
-Require Import Lang.
-Require Import Regex.
-Require Import Util.
+Require Import Turing.Lang.
+Require Import Turing.Regex.
+Require Import Turing.Util.
 
 Section Defs.
   Inductive Regular: language -> Prop :=
@@ -398,6 +398,108 @@ Module Examples.
       apply plus_inv_eq_r in R.
       apply plus_inv_eq_r in R.
       (* We now have to show that |y| + b = b *)
+      apply plus_inv_zero_l in R.
+      (* But we know that |y| >= 1, so we reach a contradiction *)
+      destruct y. {
+        contradiction.
+      }
+      inversion R.
+  Qed.
+
+  Lemma xyz_rw_ex:
+    forall (a:ascii) p x y z w,
+    length (x ++ y) <= p ->
+    pow1 a p ++ w = x ++ y ++ z ->
+    exists n,
+    p = length (x ++ y) + n /\
+    length w + n = length z /\
+    x = pow1 a (length x) /\
+    y = pow1 a (length y) /\
+    z = pow1 a n ++ w.
+  Proof.
+    intros.
+    apply le_to_plus in H.
+    destruct H as (n, Hlen).
+    exists n.
+    split; auto.
+    rewrite <- Hlen in H0.
+    rewrite app_length in H0.
+    rewrite <- plus_assoc in *.
+    apply pow1_plus_xy in H0.
+    destruct H0 as (Ha, Hb).
+    symmetry in Hb.
+    apply pow1_plus_xy in Hb.
+    destruct Hb as (Hb, Hc).
+    repeat split; auto.
+    subst.
+    rewrite app_length.
+    rewrite pow1_length.
+    auto with *.
+  Qed.
+
+  Lemma l4_not_regular_alt:
+    ~ Regular Turing.Lang.Examples.L4.
+  Proof.
+    apply not_regular.
+    intros.
+    rewrite Turing.Lang.Examples.l4_spec.
+    (* We pick our word: *)
+    apply clogged_def with (w:=(pow1 "a" p ++ pow1 "b" p) % list).
+    - unfold In.
+      exists p.
+      reflexivity.
+    - Search (length (_ ++ _)).
+      rewrite app_length.
+      Search (length (pow1 _ _)).
+      rewrite pow1_length.
+      omega.
+    - unfold In.
+      unfold Clogs.
+      intros.
+      (* Goal 3: *)
+      exists 2.
+      (* Open up the definition of In *)
+      unfold In.
+      (* We have that there is a word in L4 and we will reach a contradiction *)
+      intros N.
+      (* Break down some n *)
+      destruct N as (n, N).
+      (* We don't want pow in N, so we compute function pow with simpl: *)
+      simpl in N.
+      (* We remove the ++ [] *)
+      Search (_ ++ []).
+      rewrite app_nil_r in N.
+      (* We start working on our assumption H0, this is the first step of the slides:
+         There is some b such that lenght (x ++ y) + b = p *)
+      apply xyz_rw_ex in H0; auto.
+      destruct H0 as (b, (Hz, (_,(Hb,(Hc,Hd))))).
+      (* We already used H2 for xyz_rw, we can safely remove it. *)
+      clear H2.
+
+      (* We note that we can simplify away p *)
+      rewrite Hz in Hd; clear Hz.
+
+      (* Similarly, we simplify x, y, and z in N. *) 
+      rewrite Hb in N; clear Hb.
+      rewrite Hc in N; clear Hc.
+      rewrite Hd in N; clear Hd.
+
+      (* Next, we want to simplify all of our powers of a into a single base at the
+         RHS of the equality in N, so that we get a^x b^y = a^v b^w *)
+      (* Normalize app (++) *) 
+      repeat rewrite app_assoc in *.
+      (* Then, we eagerly join the terms with the same base *) 
+      repeat rewrite pow1_plus in N.
+      assert ("a" <> "b") by (intros M; inversion M).
+      apply pow1_a_b_inv_eq in N; auto.
+      destruct N as (L, R).
+      subst.
+      rewrite app_length in *.
+      (* Normalize addition, like we did with app *)
+      repeat rewrite <- plus_assoc in *.
+      (* We now have to show that |y| + b = b *)
+      apply plus_inv_eq_r in R.
+      apply plus_inv_eq_r in R.
       apply plus_inv_zero_l in R.
       (* But we know that |y| >= 1, so we reach a contradiction *)
       destruct y. {

@@ -3,8 +3,8 @@ Require Coq.Lists.List.
 Require Coq.Arith.PeanoNat.
 Require Coq.omega.Omega.
 Require Coq.Classes.Morphisms.
-Require Import Util.
-Require Import Lang.
+Require Import Turing.Util.
+Require Import Turing.Lang.
 
 Open Scope char_scope. (* Ensure by default we are representing characters. *)
 
