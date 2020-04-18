@@ -1,6 +1,12 @@
+Require Coq.Classes.RelationClasses.
+Require Coq.Relations.Relations.
+Require Coq.Classes.Morphisms.
+
 Require Import Coq.Setoids.Setoid.
-Require Turing.
-Require LangDec.
+
+Require Turing.Turing.
+Require Turing.LangDec.
+
 
 Module Reducibility (T: Turing.Turing).
   Import T.
@@ -309,6 +315,7 @@ Module Reducibility (T: Turing.Turing).
 
 End E_TM. (* --------------------------------------------------------------- *)
 
+  Import Morphisms.
   Definition Reduction f (A B:lang) := forall w, A w <-> B (f w).
 
   Definition Reducible A B := exists f, Reduction f A B.
@@ -316,6 +323,40 @@ End E_TM. (* --------------------------------------------------------------- *)
   Infix "<=m" := Reducible (at level 80, right associativity).
 
   Section CompFuncs.
+    Global Instance reduction_equiv_proper f: Proper (Equiv ==> Equiv ==> iff) (Reduction f).
+    Proof.
+      unfold Proper, respectful.
+      intros.
+      split; intros;
+      unfold Reduction in *; intros.
+      - split; intros.
+        + apply H in H2.
+          apply H1 in H2.
+          apply H0 in H2.
+          assumption.
+        + apply H0 in H2.
+          apply H1 in H2.
+          apply H.
+          assumption.
+      - split; intros.
+        + apply H in H2.
+          apply H1 in H2.
+          apply H0 in H2.
+          assumption.
+        + apply H0 in H2.
+          apply H1 in H2.
+          apply H.
+          assumption.
+    Qed.
+
+    Global Instance reducible_equiv_proper: Proper (Equiv ==> Equiv ==> iff) Reducible.
+    Proof.
+      unfold Proper, respectful.
+      intros.
+      split; intros;
+      unfold Reducible in *; destruct H1 as (f, H1);
+      exists f; rewrite H in *; rewrite H0 in *; assumption.
+    Qed.
 
     Lemma reducible_def:
       forall f A B,
@@ -337,7 +378,7 @@ End E_TM. (* --------------------------------------------------------------- *)
       assumption.
     Qed.
 
-    Lemma co_red:
+    Lemma co_red_co_1:
       forall A B,
       A <=m B ->
       compl A <=m compl B.
@@ -358,52 +399,58 @@ End E_TM. (* --------------------------------------------------------------- *)
         contradiction.
     Qed.
 
-    Lemma co_red_2:
+    Lemma co_red_co_2:
       forall A B,
-      Recognizable B ->
-      A <=m compl B ->
-      compl A <=m B.
+      compl A <=m compl B ->
+      A <=m B.
     Proof.
-      intros A B (M, Hb) (f, Hr).
-      unfold Reducible.
-      exists f.
+      intros.
+      unfold Reducible in *.
+      destruct H as (f, Hr).
       unfold Reduction in *.
+      exists f.
+      intros.
+      unfold compl.
       split; intros.
-      - destruct (run M (f w)) eqn:Heq.
-        + apply recognizes_run_accept with (L:=B) in Heq; auto.
-        + apply recognizes_run_reject with (L:=B) in Heq; auto.
-          apply Hr in Heq.
-          contradiction.
-        + apply recognizes_run_loop with (L:=B) in Heq; auto.
-          apply Hr in Heq.
-          contradiction.
-      - intros N.
+      + apply co_co_rw.
+        intros N.
+        apply Hr in N.
+        contradiction.
+      + apply co_co_rw.
+        intros N.
         apply Hr in N.
         contradiction.
     Qed.
 
+    Lemma co_red_co_rw:
+      forall A B,
+      compl A <=m compl B <-> A <=m B.
+    Proof.
+      split; auto using co_red_co_1, co_red_co_2.
+    Qed.
+
     Lemma co_red_1:
       forall A B,
-      Recognizable A ->
       compl A <=m B ->
       A <=m compl B.
     Proof.
-      intros A B (M, Hb) (f, Hr).
-      unfold Reducible.
-      exists f.
-      unfold Reduction in *.
-      split; intros.
-      - intros N.
-        apply Hr in N.
-        contradiction.
-      - destruct (run M w) eqn:Heq.
-        + apply recognizes_run_accept with (L:=A) in Heq; auto.
-        + apply recognizes_run_reject with (L:=A) in Heq; auto.
-          apply Hr in Heq.
-          contradiction.
-        + apply recognizes_run_loop with (L:=A) in Heq; auto.
-          apply Hr in Heq.
-          contradiction.
+      intros.
+      assert (R: Equiv B (compl (compl B))) by (rewrite co_co_rw; reflexivity).
+      rewrite R in H.
+      rewrite co_red_co_rw in H.
+      assumption.
+    Qed.
+
+    Lemma co_red_2:
+      forall A B,
+      A <=m compl B ->
+      compl A <=m B.
+    Proof.
+      intros.
+      assert (R: Equiv A (compl (compl A))) by (rewrite co_co_rw; reflexivity).
+      rewrite R in H.
+      rewrite co_red_co_rw in H.
+      assumption.
     Qed.
 
     Theorem reducible_decidable: (*------------ Theorem 5.22 ---------------- *)
@@ -579,7 +626,7 @@ End E_TM. (* --------------------------------------------------------------- *)
       ~ Recognizable (compl EQ_tm).
     Proof.
       apply reducible_unrecognizable with (A:=compl A_tm); auto.
-      - apply co_red.
+      - rewrite co_red_co_rw.
         apply a_tm_red_eq_tm.
       - apply co_a_tm_not_recognizable.
     Qed.
@@ -595,6 +642,5 @@ End E_TM. (* --------------------------------------------------------------- *)
     Qed.
 
   End EQ_TM.
-
 
 End Reducibility.

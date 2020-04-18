@@ -1,5 +1,6 @@
 Require Import Coq.Setoids.Setoid.
 Require Import Coq.Bool.Bool.
+Require Import Coq.Logic.Classical_Prop.
 
 Module Type Turing.
   (** These are the assumptions of our theory: *)
@@ -19,7 +20,8 @@ Module Type Turing.
   Axiom decode_encode_machine_rw:
     forall m,
     decode_machine (encode_machine m) = m.
-
+  (** Let us say we have a function that can encode and decode a pair of
+      inputs. *)
   Parameter decode_pair : input -> (input * input).
   Parameter encode_pair: (input * input) -> input.
   Axiom decode_encode_pair_rw:
@@ -45,42 +47,77 @@ Module Type Turing.
 
   (** We can run a machine and obtain its run result. *)
   Parameter run: machine -> input -> result.
-
+  (** When running two programs in parallel, we get to know
+      which of the two programs has terminated and how they
+      terminated. *)
   Inductive par_result :=
   | pleft: bool -> par_result
   | pright: bool -> par_result
   | pboth: bool -> bool -> par_result.
 
   Inductive Prog :=
+    (**
+     `Seq p1 f`: run p1, if p1 terminates, then
+     run (f r) where `r` is a boolean that states if p1
+     accepted or rejected its input.
+    *)
   | Seq: Prog -> (bool -> Prog) -> Prog
+    (**
+      Calls a machine with a given input
+      (see Universal Turing Machines)
+     *)
   | Call: machine -> input -> Prog
+    (**
+      This Turing Machine just accepts/loops/rejects without
+      any further operation.
+      *)
   | Ret: result -> Prog
+    (**
+      `Par p1 p2 f` interleaves the exection of program `p1`
+      and `p2`. If either (or both) terminate, then
+      call `f` with the termination result. 
+     *) 
   | Par: Prog -> Prog -> (par_result -> Prog) -> Prog.
 
+  (**
+    A decidable result is one that either accepts or rejects,
+    never looping. *)
   Inductive Dec : result -> bool -> Prop :=
   | dec_accept:
     Dec Accept true
   | dec_reject:
     Dec Reject false.
 
+  (**
+    These describe the axiomatic semantics of turing machines.
+    We can run a program `p` and obtain a resul `r` with
+    `Run p r`.
+    *)
   Inductive Run: Prog -> result -> Prop :=
   | run_ret:
+    (** We can directly return a result *)
     forall r,
     Run (Ret r) r
   | run_call:
+    (** Calling a machine is the same as using function `run`. *)
     forall m i,
     Run (Call m i) (run m i)
   | run_seq_cont:
+    (** If `p` terminates and returns `b`, then we can
+       proceed with the execution of `q b`. *) 
     forall p q b r1 r2,
     Run p r1 ->
     Dec r1 b ->
     Run (q b) r2 ->
     Run (Seq p q) r2
   | run_seq_loop:
+    (** If `p` loops, then `p; q` also loops. *)
     forall p q,
     Run p Loop ->
     Run (Seq p q) Loop
   | run_par_l_seq:
+    (** If `p` terminates and `q` loops, then
+       we run continuation `c` with `cleft b`. *)
     forall p q c r1 r2 b,
     Run p r1 ->
     Run q Loop ->
@@ -88,6 +125,8 @@ Module Type Turing.
     Run (c (pleft b)) r2 ->
     Run (Par p q c) r2
   | run_par_r_seq:
+    (** If `p` loops and `q` terminates, then
+       we run continuation `c` with `cright b`. *)
     forall p q c r1 r2 b,
     Run p Loop ->
     Run q r1 ->
@@ -95,6 +134,8 @@ Module Type Turing.
     Run (c (pright b)) r2 ->
     Run (Par p q c) r2
   | run_par_both:
+    (** If both `p` and `q` terminate, then
+       we run continuation `c` with `pboth b1 b2`. *)
     forall p q c r1 r2 r3 b1 b2,
     Run p r1 ->
     Run q r2 ->
@@ -103,18 +144,24 @@ Module Type Turing.
     Run (c (pboth b1 b2)) r3 ->
     Run (Par p q c) r3
   | run_par_loop:
+    (** If both `p` and `q` loop, then the whole thing loops. *)
     forall p q c,
     Run p Loop ->
     Run q Loop ->
     Run (Par p q c) Loop.
-
+  (** We define a notation for sequencing. *)
   Notation "'mlet' x <- e 'in' c" := (Seq e (fun x => c)) (at level 60, right associativity).
+  (** We define a notion for parallel sequencing. *)
   Notation "'plet' x <- e1 '\\' e2 'in' c" := (Par e1 e2 (fun (x:par_result) => c)) (at level 60, right associativity).
-
+  (** Notation for ACCEPT means returning Accept *)
   Notation ACCEPT := (Ret Accept).
+  (** Notation for LOOP means returning Reject *)
   Notation REJECT := (Ret Reject).
+  (** Notation for LOOP means returning Loop *)
   Notation LOOP := (Ret Loop).
+  (** We leave unspecified how we convert a program to a Turing machine. *)
   Parameter Build : (input -> Prog) -> machine.
+  (** We specify the behavior of `Build` *)
   Axiom run_build: forall p i r, Run (p i) r <-> run (Build p) i = r.
 End Turing.
 
@@ -163,7 +210,10 @@ Module TuringBasics (Tur : Turing).
 
   Definition Lang (m:machine) : lang := fun i => run m i = Accept.
 
-  (** We use a direct definition of recognition. *)
+  (** We use a direct definition of recognition:
+      The turing machine accepts input i (with `run m i`)
+      iff language L accepts i.
+       *)
 
   Definition Recognizes (m:machine) (L:lang) :=
     forall i, run m i = Accept <-> L i.
@@ -232,10 +282,55 @@ Module TuringBasics (Tur : Turing).
     intuition.
   Qed.
 
+  Lemma equiv_refl:
+    forall L,
+    Equiv L L.
+  Proof.
+    split; intros; tauto.
+  Qed.
+
+  Lemma equiv_sym:
+    forall L1 L2,
+    Equiv L1 L2 ->
+    Equiv L2 L1.
+  Proof.
+    unfold Equiv; split; intros; apply H; assumption.
+  Qed.
+
+  (** Register [Equiv] in Coq's tactics. *)
+  Global Add Parametric Relation : lang Equiv
+    reflexivity proved by equiv_refl
+    symmetry proved by equiv_sym
+    transitivity proved by equiv_trans
+    as l_equiv_setoid.
+
+  Import Morphisms.
+
+  Global Instance recognizes_equiv_proper: Proper (eq ==> Equiv ==> iff) Recognizes.
+  Proof.
+    unfold Proper, respectful, Equiv, Recognizes.
+    intros.
+    split; intros; split; intros; subst;
+    try (apply H0; apply H1; auto);
+    try (apply H1; apply H0; auto).
+  Qed.
+
+
   (** A language is recognizable, that is
       there is some machine m that recognizes it. *)
 
   Definition Recognizable (L:lang) : Prop := exists m, Recognizes m L.
+
+  Global Instance recognizable_equiv_proper: Proper (Equiv ==> iff) Recognizable.
+  Proof.
+    unfold Proper, respectful, Recognizable.
+    intros.
+    split; intros (m, Hx).
+    - rewrite H in Hx.
+      eauto.
+    - rewrite <- H in Hx.
+      eauto.
+  Qed.
 
   Lemma recognizable_def:
     forall m L, Recognizes m L -> Recognizable L.
@@ -329,8 +424,25 @@ Module TuringBasics (Tur : Turing).
   (*----------------------------------------------------------------------------*)
 
   Section Complement.
-
     Definition compl L : lang := fun i => not (L i).
+
+    Lemma co_co_rw:
+      forall L,
+      Equiv (compl (compl L)) L.
+    Proof.
+      intros.
+      unfold Equiv.
+      split; intros. {
+        destruct (Classical_Prop.classic (L i)). {
+          assumption.
+        }
+        apply H in H0.
+        inversion H0.
+      }
+      unfold compl.
+      intros N.
+      contradiction.
+    Qed.
 
     Lemma co_recognizes_run_accept:
       forall m L i,
