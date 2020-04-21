@@ -89,6 +89,21 @@ Module Type Turing.
   | dec_reject:
     Dec Reject false.
 
+  Parameter par_choice: Prog -> Prog -> bool -> bool -> par_result. 
+  Inductive ParChoice b1 b2: par_result -> Prop :=
+  | par_choice_left:
+    ParChoice b1 b2 (pleft b1)
+  | par_choice_right:
+    ParChoice b1 b2 (pright b2)
+  | par_choice_both:
+    ParChoice b1 b2 (pboth b1 b2).
+
+  (** The parallel choice must respect the result *)
+  Axiom par_choice_spec:
+    forall p q b1 b2 r,
+    par_choice p q b1 b2 = r ->
+    ParChoice b1 b2 r.
+
   (**
     These describe the axiomatic semantics of turing machines.
     We can run a program `p` and obtain a resul `r` with
@@ -137,13 +152,13 @@ Module Type Turing.
   | run_par_both:
     (** If both `p` and `q` terminate, then
        we run continuation `c` with `pboth b1 b2`. *)
-    forall p q c r1 r2 r3 b1 b2,
-    Run p r1 ->
-    Run q r2 ->
+    forall p1 p2 c r1 r2 r3 b1 b2,
+    Run p1 r1 ->
+    Run p2 r2 ->
     Dec r1 b1 ->
     Dec r2 b2 ->
-    Run (c (pboth b1 b2)) r3 ->
-    Run (Par p q c) r3
+    Run (c (par_choice p1 p2 b1 b2)) r3 ->
+    Run (Par p1 p2 c) r3
   | run_par_loop:
     (** If both `p` and `q` loop, then the whole thing loops. *)
     forall p q c,
@@ -904,23 +919,11 @@ Module TuringBasics (Tur : Turing).
       - assumption.
     Qed.
 
-    Lemma run_par_accept_accept:
-      forall p q c r,
-      Run p Accept ->
-      Run q Accept ->
-      Run (c (pboth true true)) r ->
-      Run (Par p q c) r.
-    Proof.
-      intros.
-      apply run_par_both with (r1:=Accept) (r2:=Accept) (b1:=true) (b2:=true);
-      auto using dec_accept.
-    Qed.
-
     Lemma run_par_accept_reject:
       forall p q c r,
       Run p Accept ->
       Run q Reject ->
-      Run (c (pboth true false)) r ->
+      Run (c (par_choice p q true false)) r ->
       Run (Par p q c) r.
     Proof.
       intros.
@@ -974,55 +977,30 @@ Module TuringBasics (Tur : Turing).
       apply run_ret.
     Qed.
 
+    Lemma run_fun_ex:
+      forall (p:input->Prog) i r1 r2,
+      Run (p i) r1 ->
+      Run (p i) r2 ->
+      r1 = r2.
+    Proof.
+      intros.
+      apply run_build in H.
+      apply run_build in H0.
+      rewrite H in H0.
+      assumption.
+    Qed.
+    (* XXX: https://gitlab.com/cogumbreiro/turing/-/issues/1 *)
     Lemma run_fun:
       forall p r1 r2,
       Run p r1 ->
       Run p r2 ->
       r1 = r2.
     Proof.
-      induction p; intros.
-      - inversion H0; subst; clear H0;
-        inversion H1; subst; clear H1;
-        try match goal with
-          | [ H1: Run ?p Loop, H2: Run ?p ?r, H3: Dec ?r _ |- _ ] =>
-            assert (r = Loop) by eauto;
-            subst;
-            inversion H3
-          end; auto.
-        assert (r0 = r3) by eauto; subst.
-        assert (b0 = b) by eauto using dec_fun.
-        subst.
-        eauto.
-      - inversion H; subst; clear H;
-        inversion H0; subst; clear H0.
-        reflexivity.
-      - inversion H; subst; clear H;
-        inversion H0; subst; clear H0.
-        reflexivity.
-      - inversion H0; subst; clear H0;
-        inversion H1; subst; clear H1;
-        try match goal with
-          | [ H1: Run ?p Loop, H2: Run ?p ?r, H3: Dec ?r _ |- _ ] =>
-            assert (r = Loop) by eauto;
-            subst;
-            inversion H3
-          end.
-        + assert (r0 = r3) by eauto; subst.
-          assert (b0 = b) by eauto using dec_fun.
-          subst.
-          eauto.
-        + assert (r0 = r3) by eauto; subst.
-          assert (b0 = b) by eauto using dec_fun.
-          subst.
-          eauto.
-        + assert (r0 = r4) by eauto; subst.
-          assert (b0 = b1) by eauto using dec_fun.
-          assert (r3 = r5) by eauto; subst.
-          assert (b2 = b3) by eauto using dec_fun.
-          subst.
-          eauto.
-        + reflexivity.
+      intros.
+      assert (X := run_fun_ex (fun w => p) input_inhabited).
+      apply X; auto.
     Qed.
+
   End RUN.
 
 
@@ -1120,65 +1098,65 @@ Module TuringBasics (Tur : Turing).
       - assumption.
     Qed.
 
-    Inductive ParMerge : result -> result -> par_result -> Prop :=
+    Inductive ParMerge p q : result -> result -> par_result -> Prop :=
     | par_merge_left:
       forall r b,
       Dec r b ->
-      ParMerge r Loop (pleft b)
+      ParMerge p q r Loop (pleft b)
     | par_merge_right:
       forall r b,
       Dec r b ->
-      ParMerge Loop r (pright b)
+      ParMerge p q Loop r (pright b)
     | par_merge_both:
       forall r1 b1 r2 b2,
       Dec r1 b1 ->
       Dec r2 b2 ->
-      ParMerge r1 r2 (pboth b1 b2).
+      ParMerge p q r1 r2 (par_choice p q b1 b2).
 
-    Lemma par_merge_accept_accept:
-      ParMerge Accept Accept (pboth true true).
+    Lemma par_merge_accept_accept p q:
+      ParMerge p q Accept Accept (par_choice p q true true).
     Proof.
       auto using par_merge_both,dec_accept.
     Qed.
 
-    Lemma par_merge_reject_accept:
-      ParMerge Reject Accept (pboth false true).
+    Lemma par_merge_reject_accept p q:
+      ParMerge p q Reject Accept (par_choice p q false true).
     Proof.
       auto using par_merge_both,dec_accept,dec_reject.
     Qed.
 
-    Lemma par_merge_reject_reject:
-      ParMerge Reject Reject (pboth false false).
+    Lemma par_merge_reject_reject p q:
+      ParMerge p q Reject Reject (par_choice p q false false).
     Proof.
       auto using par_merge_both,dec_accept,dec_reject.
     Qed.
 
-    Lemma par_merge_accept_reject:
-      ParMerge Accept Reject (pboth true false).
+    Lemma par_merge_accept_reject p q:
+      ParMerge p q Accept Reject (par_choice p q true false).
     Proof.
       auto using par_merge_both, dec_accept, dec_reject.
     Qed.
 
-    Lemma par_merge_accept_loop:
-      ParMerge Accept Loop (pleft true).
+    Lemma par_merge_accept_loop p q:
+      ParMerge p q Accept Loop (pleft true).
     Proof.
       auto using par_merge_left, dec_accept, dec_reject.
     Qed.
 
-    Lemma par_merge_loop_accept:
-      ParMerge Loop Accept (pright true).
+    Lemma par_merge_loop_accept p q:
+      ParMerge p q Loop Accept (pright true).
     Proof.
       auto using par_merge_right, dec_accept, dec_reject.
     Qed.
 
-    Lemma par_merge_reject_loop:
-      ParMerge Reject Loop (pleft false).
+    Lemma par_merge_reject_loop p q:
+      ParMerge p q Reject Loop (pleft false).
     Proof.
       auto using par_merge_left, dec_accept, dec_reject.
     Qed.
 
-    Lemma par_merge_loop_reject:
-      ParMerge Loop Reject (pright false).
+    Lemma par_merge_loop_reject p q:
+      ParMerge p q Loop Reject (pright false).
     Proof.
       auto using par_merge_right, dec_accept, dec_reject.
     Qed.
@@ -1205,21 +1183,21 @@ Module TuringBasics (Tur : Turing).
       forall r1 b p1 p2 k,
       Run p1 r1 ->
       Dec r1 b ->
-      (forall r2 q, Run p2 r2 -> ParMerge r1 r2 q -> PHalts (k q)) ->
+      (forall r2 q, Run p2 r2 -> ParMerge p1 p2 r1 r2 q -> PHalts (k q)) ->
       PHalts (Par p1 p2 k).
     Proof.
       intros.
       inversion H0; subst; clear H0.
       - destruct (run_exists p2) as (r2, Hp2).
         destruct r2.
-        + assert (PHalts (k (pboth true true))). {
+        + assert (PHalts (k (par_choice p1 p2 true true))). {
             apply H1 with (r2:=Accept); auto.
             apply par_merge_accept_accept.
           }
           destruct H0 as (r, (Hr,?)).
           apply p_halts_def with (r:=r); auto.
           eapply run_par_both; eauto using dec_accept.
-        + assert (PHalts (k (pboth true false))). {
+        + assert (PHalts (k (par_choice p1 p2 true false))). {
             apply H1 with (r2:=Reject); auto.
             apply par_merge_accept_reject.
           }
@@ -1235,14 +1213,14 @@ Module TuringBasics (Tur : Turing).
           eapply run_par_l_seq; eauto using dec_accept.
       - destruct (run_exists p2) as (r2, Hp2).
         destruct r2.
-        + assert (PHalts (k (pboth false true))). {
+        + assert (PHalts (k (par_choice p1 p2 false true))). {
             apply H1 with (r2:=Accept); auto.
             apply par_merge_reject_accept.
           }
           destruct H0 as (r, (Hr,?)).
           apply p_halts_def with (r:=r); auto.
           eapply run_par_both; eauto using dec_accept, dec_reject.
-        + assert (PHalts (k (pboth false false))). {
+        + assert (PHalts (k (par_choice p1 p2 false false))). {
             apply H1 with (r2:=Reject); auto.
             apply par_merge_reject_reject.
           }
@@ -1262,21 +1240,21 @@ Module TuringBasics (Tur : Turing).
       forall r2 b p1 p2 k,
       Run p2 r2 ->
       Dec r2 b ->
-      (forall r1 q, Run p1 r1 -> ParMerge r1 r2 q -> PHalts (k q)) ->
+      (forall r1 q, Run p1 r1 -> ParMerge p1 p2 r1 r2 q -> PHalts (k q)) ->
       PHalts (Par p1 p2 k).
     Proof.
       intros.
       inversion H0; subst; clear H0.
       - destruct (run_exists p1) as (r1, Hp1).
         destruct r1.
-        + assert (PHalts (k (pboth true true))). {
+        + assert (PHalts (k (par_choice p1 p2 true true))). {
             apply H1 with (r1:=Accept); auto.
             apply par_merge_accept_accept.
           }
           destruct H0 as (r, (Hr,?)).
           apply p_halts_def with (r:=r); auto.
           eapply run_par_both; eauto using dec_accept.
-        + assert (PHalts (k (pboth false true))). {
+        + assert (PHalts (k (par_choice p1 p2 false true))). {
             apply H1 with (r1:=Reject); auto.
             apply par_merge_reject_accept.
           }
@@ -1292,14 +1270,14 @@ Module TuringBasics (Tur : Turing).
           eapply run_par_r_seq; eauto using dec_accept.
       - destruct (run_exists p1) as (r1, Hp1).
         destruct r1.
-        + assert (PHalts (k (pboth true false))). {
+        + assert (PHalts (k (par_choice p1 p2 true false))). {
             apply H1 with (r1:=Accept); auto.
             apply par_merge_accept_reject.
           }
           destruct H0 as (r, (Hr,?)).
           apply p_halts_def with (r:=r); auto.
           eapply run_par_both; eauto using dec_accept, dec_reject.
-        + assert (PHalts (k (pboth false false))). {
+        + assert (PHalts (k (par_choice p1 p2 false false))). {
             apply H1 with (r1:=Reject); auto.
             apply par_merge_reject_reject.
           }

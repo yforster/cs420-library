@@ -391,6 +391,7 @@ Module Decidability (Tur: Turing).
       match b with
       | pleft true
       | pboth true _ => ACCEPT
+      | pright false => ACCEPT
       | _ => REJECT
       end
     ).
@@ -406,34 +407,90 @@ Module Decidability (Tur: Turing).
     assumption.
   Qed.
 
+  Lemma run_par_both_eq:
+    forall p1 p2 (k:par_result -> Prog) r1 r2 b1 b2 r,
+    Run p1 r1 ->
+    Run p2 r2 ->
+    Dec r1 b1 ->
+    Dec r2 b2 ->
+    Run (k (pboth b1 b2)) r ->
+    Run (k (pleft b1)) r ->
+    Run (k (pright b2)) r ->
+    Run (Par p1 p2 k) r.
+  Proof.
+    intros.
+    apply run_par_both with (r1:=r1) (r2:=r2) (b1:=b1) (b2:=b2); auto.
+    destruct (par_choice _ _ _ _) eqn:Hp; apply par_choice_spec in Hp;
+    inversion Hp; subst; clear Hp; auto.
+  Qed.
+
+  Inductive DisjointResults: result -> result -> Prop :=
+  | disjoint_accept_loop:
+    DisjointResults Accept Loop
+  | disjoint_accept_reject:
+    DisjointResults Accept Reject
+  | disjoint_loop_accept:
+    DisjointResults Loop Accept
+  | disjoint_reject_accept:
+    DisjointResults Reject Accept.
+
   Local Lemma par_mach_lang:
     forall m1 m2,
+    (forall i, DisjointResults (run m2 i) (run m1 i)) ->
     Recognizes (par_mach m1 m2) (Lang m1).
   Proof.
     unfold par_mach.
     unfold Recognizes.
-    intros.
+    intros m1 m2 Hr; intros.
     rewrite <- run_build.
     split.
     + intros.
-      inversion H; subst; clear H; run_simpl_all.
+      inversion H; subst; clear H; run_simpl_all; auto.
       * destruct b; run_simpl_all.
         assumption. (* Definition of Lang *) 
-      * inversion H5; subst; clear H5; run_simpl_all.
-        assumption. (* Definition of Lang *)
+      (* * rewrite H in *.
+        run_simpl. *)
+      * (* Absurd case *)
+        destruct b; run_simpl_all.
+        assert (Hr := Hr i).
+        rewrite H in *.
+        rewrite H1 in *.
+        inversion Hr.
+      * destruct (par_choice _ _ _ _) eqn:Hp;
+        apply par_choice_spec in Hp; inversion Hp; subst; clear Hp;
+        destruct b; run_simpl_all; try assumption.
+        inversion H5; subst; clear H5.
+        - symmetry in H1.
+          assumption.
+        - (* Absurd case *)
+          assert (Hr := Hr i).
+          rewrite <- H1 in Hr.
+          rewrite H0 in *.
+          inversion Hr.
     + intros.
       remember (run m2 i) as r.
       symmetry in Heqr.
+      apply run_call_eq in H.
+      apply run_call_eq in Heqr.
       destruct r.
-      * apply run_par_accept_accept; auto using run_call_eq, run_ret.
-      * apply run_par_accept_reject; auto using run_call_eq, run_ret.
-      * apply run_par_l_accept; auto using run_call_eq, run_ret.
+      * (* Absurd case *)
+        assert (Hr := Hr i).
+        inversion H; subst; clear H.
+        rewrite H3 in *.
+        inversion Heqr; subst; clear Heqr.
+        rewrite H in *.
+        inversion Hr.
+      * apply run_par_both_eq with (r1:=Accept) (r2:=Reject) (b1:=true) (b2:=false);
+        auto using dec_accept, dec_reject, run_ret.
+      * apply run_par_l_accept; auto using run_ret.
   Qed.
 
   Local Lemma par_run_spec:
     forall m1 m2,
+    (forall i, DisjointResults (run m2 i) (run m1 i)) ->
     par_run m1 m2 (par_mach m1 m2).
   Proof.
+    intros m1 m3 Hr.
     unfold par_run.
     unfold par_mach in *.
     intros.
@@ -442,26 +499,42 @@ Module Decidability (Tur: Turing).
     apply run_build in Heqr.
     inversion Heqr; subst; clear Heqr; run_simpl_all.
     - destruct b; run_simpl_all; intuition.
-    - right.
-      intros N.
-      rewrite N in *.
-      rewrite H in *.
-      run_simpl. (* Dec Loop b -> contradiction *) 
-    - destruct b1; run_simpl_all; auto.
+    - inversion H5; subst; clear H5; run_simpl_all.
+      + right.
+        rewrite H.
+        intros N; inversion N.
+      + (* Absurd case *)
+        assert (Hr := Hr i).
+        rewrite H in *.
+        rewrite H1 in *.
+        inversion Hr.
+    - destruct (par_choice _ _ _ _) eqn:Hp; apply par_choice_spec in Hp; inversion Hp; subst; clear Hp.
+      + inversion H4; subst; clear H4; run_simpl_all; auto.
+      + inversion H6; subst; clear H6; run_simpl_all; auto.
+        * right.
+          intros N; inversion N.
+        * inversion H4; subst; clear H4; auto.
+          assert (Hr := Hr i).
+          rewrite H0 in *.
+          rewrite <- H1 in *.
+          inversion Hr.
+      + inversion H4; subst; clear H4; run_simpl_all; auto.
     - rewrite H.
-      intuition.
+      rewrite H4.
+      auto.
   Qed.
 
   Local Lemma par_run_exists:
     forall m1 m2,
+    (forall i, DisjointResults (run m2 i) (run m1 i)) ->
     exists m3,
       Recognizes m3 (Lang m1) /\ par_run m1 m2 m3.
   Proof.
     intros.
     exists (par_mach m1 m2).
     split.
-    - apply par_mach_lang.
-    - apply par_run_spec.
+    - auto using par_mach_lang.
+    - auto using par_run_spec.
   Qed.
 
   Lemma decidable_to_co_recognizable:
@@ -488,6 +561,30 @@ Module Decidability (Tur: Turing).
     apply co_recognizes_accept with (L:=L); auto.
   Qed.
 
+  Lemma recognizes_co_recognizes_disjoint:
+    forall m1 m2 L,
+    Recognizes m1 L ->
+    Recognizes m2 (compl L) ->
+    forall i, DisjointResults (run m2 i) (run m1 i).
+  Proof.
+    intros.
+    remember (run m1 i).
+    symmetry in Heqr.
+    destruct r.
+    - apply H in Heqr.
+      apply co_recognizes_not_accept with (m:=m2) in Heqr; auto.
+      destruct (run m2 i); auto using disjoint_reject_accept, disjoint_loop_accept.
+      contradiction.
+    - apply recognizes_run_reject with (L:=L) in Heqr; auto.
+      apply co_recognizes_accept with (m:=m2) in Heqr; auto.
+      rewrite Heqr.
+      apply disjoint_accept_reject.
+    - apply recognizes_run_loop with (L:=L) in Heqr; auto.
+      apply co_recognizes_accept with (m:=m2) in Heqr; auto.
+      rewrite Heqr.
+      apply disjoint_accept_loop.
+  Qed.
+
   Lemma recognizable_co_recognizable_to_decidable:
     forall L,
     Recognizable L ->
@@ -497,7 +594,8 @@ Module Decidability (Tur: Turing).
     intros.
     destruct H as (m1, H).
     destruct H0 as (m2, H0).
-    destruct par_run_exists with (m1:=m1) (m2:=m2) as (mpar, (Hr,Hp)).
+    destruct par_run_exists with (m1:=m1) (m2:=m2) as (mpar, (Hr,Hp));
+    eauto using recognizes_co_recognizes_disjoint.
     apply decidable_def with (m:=mpar).
     apply decides_def.
     + unfold Recognizes.
