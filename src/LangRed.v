@@ -4,16 +4,16 @@ Require Coq.Classes.Morphisms.
 
 Require Import Coq.Setoids.Setoid.
 
-Require Turing.Turing.
-Require Turing.LangDec.
+Require Import Turing.Turing.
+Require Import Turing.LangDec.
 
-
+(*
 Module Reducibility (T: Turing.Turing).
   Import T.
   Module D := LangDec.Decidability T.
   Import D.
   Import D.B.
-
+*)
   Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
 
   Definition HALT_tm : lang := fun p =>
@@ -642,5 +642,6 @@ End E_TM. (* --------------------------------------------------------------- *)
     Qed.
 
   End EQ_TM.
-
+(*
 End Reducibility.
+*)

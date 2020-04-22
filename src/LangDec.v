@@ -1,11 +1,11 @@
 Require Import Turing.
 Require Import Coq.Bool.Bool.
-
+(*
 Module Decidability (Tur: Turing).
   Import Tur.
   Module B := TuringBasics Tur.
   Import B.
-
+*)
   Section Defs.
   Definition A_tm : lang := fun p =>
     let (M, w) := decode_machine_input p in
@@ -667,4 +667,5 @@ Module Decidability (Tur: Turing).
     assumption.
   Qed.
   End Defs.
-End Decidability.
+  (*
+End Decidability.*)

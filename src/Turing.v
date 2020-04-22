@@ -2,7 +2,7 @@ Require Import Coq.Setoids.Setoid.
 Require Import Coq.Bool.Bool.
 Require Import Coq.Logic.Classical_Prop.
 
-Module Type Turing.
+(*Module Type Turing.*)
   (** These are the assumptions of our theory: *)
   (** We leave the input and the machine as unspecified data types. *)
   Parameter input: Type.
@@ -179,11 +179,11 @@ Module Type Turing.
   Parameter Build : (input -> Prog) -> machine.
   (** We specify the behavior of `Build` *)
   Axiom run_build: forall p i r, Run (p i) r <-> run (Build p) i = r.
-End Turing.
-
+(*End Turing.*)
+(*
 Module TuringBasics (Tur : Turing).
   Import Tur.
-
+*)
   (** Given a machine and a string, encodes the pair as a string.
       In the book, this corresponds to notation <M, w>. *)
   Definition encode_machine_input (M:machine) (w:input) : input :=
@@ -1009,7 +1009,18 @@ Module TuringBasics (Tur : Turing).
     programs.
     *)
   Section P_DECIDER.
-    (* A program is a decider *)
+    Definition PAccepts (p:input->Prog) i := Run (p i) Accept.
+
+    Lemma p_accepts_def:
+      forall p i,
+      Run (p i) Accept ->
+      PAccepts p i.
+    Proof.
+      intros.
+      auto.
+    Qed.
+
+    (* A program halts *)
     Definition PHalts p := exists r, Run p r /\ r <> Loop.
 
     Lemma p_halts_def:
@@ -1394,6 +1405,26 @@ Module TuringBasics (Tur : Turing).
       assumption.
     Qed.
 
+    Lemma p_halts_seq_p_decider:
+      forall p k,
+      PDecider p ->
+      forall w,
+      (forall r b, Run (p w) r -> Dec r b -> PHalts (k b)) ->
+      PHalts (Seq (p w) k).
+    Proof.
+      intros.
+      apply p_decider_to_decider in H.
+      apply decider_to_p_run with (w:=w) in H.
+      destruct H as (r, (b, (Hr, Hd))).
+      inversion Hr; subst; clear Hr.
+      apply p_halts_seq with (r:=run (Build p) w) (b:=b); auto.
+      - apply run_build.
+        reflexivity.
+      - apply H0 with (r:=run (Build p) w).
+        + apply run_build; reflexivity.
+        + assumption.
+    Qed.
+
     Definition PRecognizes (p:input->Prog) L : Prop :=
       forall i, Run (p i) Accept <-> L i.
 
@@ -1438,6 +1469,77 @@ Module TuringBasics (Tur : Turing).
       eauto using recognizable_def.
     Qed.
 
+    Lemma p_recognizes_run_reject:
+      forall p L i,
+      PRecognizes p L ->
+      Run (p i) Reject ->
+      ~ L i.
+    Proof.
+      intros.
+      rewrite p_recognizes_rw in H.
+      eapply recognizes_run_reject; eauto.
+      unfold Recognizes in H.
+      apply run_build in H0.
+      assumption.
+    Qed.
+
+
+    Lemma p_recognizes_run_loop:
+      forall p L i,
+      PRecognizes p L ->
+      Run (p i) Loop ->
+      ~ L i.
+    Proof.
+      intros.
+      rewrite p_recognizes_rw in H.
+      eapply recognizes_run_loop; eauto.
+      unfold Recognizes in H.
+      apply run_build in H0.
+      assumption.
+    Qed.
+
+    Lemma p_recognizes_run_accept:
+      forall p L i,
+      PRecognizes p L ->
+      Run (p i) Accept ->
+      L i.
+    Proof.
+      intros.
+      rewrite p_recognizes_rw in H.
+      eapply recognizes_run_accept; eauto.
+      unfold Recognizes in H.
+      apply run_build in H0.
+      assumption.
+    Qed.
+
+    Lemma p_recognizes_not_accept:
+      forall p L i r,
+      PRecognizes p L ->
+      Run (p i) r ->
+      ~ L i ->
+      r <> Accept.
+    Proof.
+      intros.
+      rewrite p_recognizes_rw in H.
+      apply run_build in H0.
+      rewrite <- H0.
+      apply recognizes_not_accept with (L:=L); auto.
+    Qed.
+
+    Lemma p_recognizes_accept:
+      forall p L i r,
+      PRecognizes p L ->
+      Run (p i) r ->
+      L i ->
+      r = Accept.
+    Proof.
+      intros.
+      rewrite p_recognizes_rw in H.
+      apply run_build in H0.
+      rewrite <- H0.
+      apply recognizes_accept with (L:=L); auto.
+    Qed.
+
     Definition PDecides p L := PRecognizes p L /\ PDecider p.
 
     Lemma p_decides_def:
@@ -1466,6 +1568,94 @@ Module TuringBasics (Tur : Turing).
         assumption.
     Qed.
 
+    Lemma p_decides_to_p_recognizes:
+      forall p L,
+      PDecides p L ->
+      PRecognizes p L.
+    Proof.
+      intros.
+      destruct H.
+      assumption.
+    Qed.
+
+    Lemma p_decides_to_p_decider:
+      forall p L,
+      PDecides p L ->
+      PDecider p.
+    Proof.
+      intros.
+      destruct H; auto.
+    Qed.
+
+    Lemma p_decides_run_accept:
+      forall p L i,
+      PDecides p L ->
+      Run (p i) Accept ->
+      L i.
+    Proof.
+      intros.
+      apply p_decides_to_p_recognizes in H.
+      apply p_recognizes_run_accept with (p:=p); auto.
+    Qed.
+
+    Lemma p_decides_run_reject:
+      forall p L i,
+      PDecides p L ->
+      Run (p i) Reject ->
+      ~ L i.
+    Proof.
+      intros.
+      apply p_decides_to_p_recognizes in H.
+      eauto using p_recognizes_run_reject.
+    Qed.
+
+    Lemma p_decider_run_dec:
+      forall p i r,
+      PDecider p ->
+      Run (p i) r ->
+      exists b, Dec r b.
+    Proof.
+      intros.
+      apply p_decider_to_decider in H.
+      apply run_build in H0.
+      assert (H := H i).
+      rewrite H0 in H.
+      destruct r.
+      - eauto using dec_accept.
+      - eauto using dec_reject.
+      - contradiction.
+    Qed.
+
+    Lemma p_decides_reject:
+      forall p L i r,
+      PDecides p L ->
+      Run (p i) r ->
+      ~ L i ->
+      r = Reject.
+    Proof.
+      intros.
+      destruct H as (Ha, Hb).
+      apply p_recognizes_not_accept with (p:=p) (r:=r) in H1; auto.
+      destruct r.
+      - contradiction.
+      - reflexivity.
+      - apply p_decider_run_dec in H0; auto.
+        destruct H0 as (b, H).
+        inversion H.
+    Qed.
+
+    Lemma p_decides_accept:
+      forall p L i r,
+      PDecides p L ->
+      Run (p i) r ->
+      L i ->
+      r = Accept.
+    Proof.
+      intros.
+      apply p_decides_to_p_recognizes in H.
+      eauto using p_recognizes_accept.
+    Qed.
+
     Lemma p_decidable_def:
       forall p L,
       PDecides p L ->
@@ -1474,6 +1664,46 @@ Module TuringBasics (Tur : Turing).
       intros.
       unfold Decidable.
       eauto using p_decides_to_decides.
+    Qed.
+
+    Lemma recognizes_to_p_recognizes:
+      forall m L,
+      Recognizes m L ->
+      PRecognizes (fun w : input => Call m w) L.
+    Proof.
+      intros.
+      apply p_recognizes_def; intros.
+      - inversion H0; subst; clear H0.
+        apply recognizes_run_accept with (m:=m); auto.
+      - apply run_call_eq.
+        apply recognizes_accept with (L:=L); auto.
+    Qed.
+
+    Lemma decider_to_p_decider_call:
+      forall m,
+      Decider m ->
+      PDecider (fun w : input => Call m w).
+    Proof.
+      intros.
+      apply p_decider_def.
+      intros.
+      auto using p_halts_call_decider.
+    Qed.
+
+    Lemma decidable_to_p_decides:
+      forall L,
+      Decidable L ->
+      exists p, PDecides p L.
+    Proof.
+      intros.
+      destruct H as (m, H).
+      exists (fun w => Call m w).
+      apply p_decides_def.
+      - apply decides_to_recognizes in H.
+        apply recognizes_to_p_recognizes.
+        assumption.
+      - apply decides_to_decider in H.
+        auto using decider_to_p_decider_call.
     Qed.
   End P_DECIDER.
 
@@ -1592,5 +1822,6 @@ Module TuringBasics (Tur : Turing).
   (** Simplify everything *)
 
   Ltac run_simpl_all := repeat run_simpl.
-
+(*
 End TuringBasics.
+*)
