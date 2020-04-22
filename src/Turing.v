@@ -1459,7 +1459,7 @@ Module TuringBasics (Tur : Turing).
         assumption.
     Qed.
 
-    Lemma p_recognizes_to_recognizable:
+    Lemma p_recognizable_def:
       forall p L,
       PRecognizes p L ->
       Recognizable L.
