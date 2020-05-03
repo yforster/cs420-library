@@ -2,7 +2,6 @@ Require Import Coq.Setoids.Setoid.
 Require Import Coq.Bool.Bool.
 Require Import Coq.Logic.Classical_Prop.
 
-(*Module Type Turing.*)
   (** These are the assumptions of our theory: *)
   (** We leave the input and the machine as unspecified data types. *)
   Parameter input: Type.
@@ -21,6 +20,12 @@ Require Import Coq.Logic.Classical_Prop.
   Axiom decode_encode_machine_rw:
     forall m,
     decode_machine (encode_machine m) = m.
+  Axiom encode_decode_machine_rw:
+    forall w, encode_machine (decode_machine w) = w.
+  Axiom encode_machine_ext:
+    forall m1 m2,
+    encode_machine m1 = encode_machine m2 -> m1 = m2.
+
   (** Let us say we have a function that can encode and decode a pair of
       inputs. *)
   Parameter decode_pair : input -> (input * input).
@@ -28,7 +33,13 @@ Require Import Coq.Logic.Classical_Prop.
   Axiom decode_encode_pair_rw:
     forall p,
     decode_pair (encode_pair p) = p.
-
+  Axiom encode_decode_pair_rw:
+    forall w,
+    encode_pair (decode_pair w) = w.
+  Axiom encode_pair_ext:
+    forall w1 w2,
+    encode_pair w1 = encode_pair w2 ->
+    w1 = w2.
   (** Let us define an abbreviation of the above functions. *)
   Notation "'<<' w1 ',' w2 '>>'" := (encode_pair w1 w2).
   Notation "'[[' M ']]'" := (encode_machine M).
@@ -1789,7 +1800,9 @@ Module TuringBasics (Tur : Turing).
   Ltac run_simpl_rw := (
       rewrite decode_encode_machine_input_rw in * ||
       rewrite decode_encode_pair_rw in * ||
-      rewrite decode_encode_machine_rw in *).
+      rewrite encode_decode_pair_rw in * ||
+      rewrite decode_encode_machine_rw in * ||
+      rewrite encode_decode_machine_rw in *).
 
   Ltac run_simpl_norm :=
     match goal with
