@@ -26,6 +26,10 @@ Require Import Coq.Logic.Classical_Prop.
     forall m1 m2,
     encode_machine m1 = encode_machine m2 -> m1 = m2.
 
+  Axiom decode_machine_ext:
+    forall w1 w2,
+    decode_machine w1 = decode_machine w2 -> w1 = w2.
+
   (** Let us say we have a function that can encode and decode a pair of
       inputs. *)
   Parameter decode_pair : input -> (input * input).
@@ -40,6 +44,11 @@ Require Import Coq.Logic.Classical_Prop.
     forall w1 w2,
     encode_pair w1 = encode_pair w2 ->
     w1 = w2.
+  Axiom decode_pair_ext:
+    forall p1 p2,
+    decode_pair p1 = decode_pair p2 ->
+    p1 = p2.
+
   (** Let us define an abbreviation of the above functions. *)
   Notation "'<<' w1 ',' w2 '>>'" := (encode_pair w1 w2).
   Notation "'[[' M ']]'" := (encode_machine M).
@@ -219,6 +228,46 @@ Module TuringBasics (Tur : Turing).
     rewrite decode_encode_pair_rw.
     rewrite decode_encode_machine_rw.
     reflexivity.
+  Qed.
+
+  Lemma decode_machine_input_ext:
+    forall w1 w2,
+    decode_machine_input w1 = decode_machine_input w2 ->
+    w1 = w2.
+  Proof.
+    unfold decode_machine_input.
+    intros.
+    destruct (decode_pair w1) as (M1, i1) eqn:R1.
+    destruct (decode_pair w2) as (M2, i2) eqn:R2.
+    inversion H; subst; clear H.
+    apply decode_machine_ext in H1.
+    subst.
+    rewrite <- R1 in R2.
+    apply decode_pair_ext in R2.
+    auto.
+  Qed.
+
+  Lemma decode_machine_input_rev:
+    forall w M i,
+    decode_machine_input w = (M, i) ->
+    w = <[ M, i ]>.
+  Proof.
+    intros.
+    rewrite <- decode_encode_machine_input_rw in H.
+    apply decode_machine_input_ext in H.
+    assumption.
+  Qed.
+
+  Lemma encode_machine_input_ext:
+    forall M M' i i',
+    <[M, i]> = <[M', i']> -> M = M' /\ i = i'.
+  Proof.
+    unfold encode_machine_input.
+    intros.
+    apply encode_pair_ext in H.
+    inversion H; subst; clear H.
+    apply encode_machine_ext in H1.
+    auto.
   Qed.
 
   (** Define the equivalence of languages *)
