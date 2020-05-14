@@ -15,35 +15,45 @@ to access the teaching material.
 
 # Installation
 
+## Windows
+
+```
+$ scoop install https://gitlab.com/cogumbreiro/turing/-/raw/master/scoop/turing.json
+```
+
+## Unix-based OS
+
 
 To install the Turing library in your system run these commands:
 ```bash
-$ coq_makefile -f _CoqProject -o Makefile # You may also run: ./configure.sh
+$ git clone https://gitlab.com/cogumbreiro/turing
+$ cd turing
+$ ./configure.sh
 $ make
 $ make install
 ```
 
-Module `Turing` should now be available to `Require` in CoqIDE/coqc.
-
 # Updating
 
 **Make sure you have already installed `Turing` in your system.**
+
+## Windows
+
+```bash
+> scoop update turing
+```
 
 ## Unix-based OS
 
 Then, run the following commands:
 
 ```bash
+$ cd /path/where/you/installed/turing
 $ git pull
 $ make
 $ make install
 ```
 
-## Windows
-
-```bash
-> scoop update https://gitlab.com/cogumbreiro/turing/-/raw/master/scoop/turing.json
-```
 
 # Coverage
 
