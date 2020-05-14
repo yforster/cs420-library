@@ -17,8 +17,10 @@ to access the teaching material.
 
 ## Windows
 
+* Step 1. Install [scoop](https://scoop.sh/)
+* Step 2. Open powershell and run:
 ```
-$ scoop install https://gitlab.com/cogumbreiro/turing/-/raw/master/scoop/turing.json
+> scoop install https://gitlab.com/cogumbreiro/turing/-/raw/master/scoop/turing.json
 ```
 
 ## Unix-based OS
@@ -38,6 +40,8 @@ $ make install
 **Make sure you have already installed `Turing` in your system.**
 
 ## Windows
+
+* Step 1. Open a powershell prompt and run
 
 ```bash
 > scoop update turing
