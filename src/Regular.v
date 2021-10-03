@@ -8,7 +8,7 @@ Require Coq.Setoids.Setoid.
 Require Coq.Relations.Relations.
 
 
-Require Coq.omega.Omega.
+Require Import Coq.micromega.Lia.
 Import ListNotations.
 Require Import Turing.Lang.
 Require Import Turing.Regex.
@@ -52,7 +52,6 @@ Section Props.
 End Props.
 
 Section Pumping.
-  Import Omega.
 
   Inductive Pump (L:language) (p:nat) (w:word) : Prop :=
   | pump_def:
@@ -96,7 +95,7 @@ Section Pumping.
       apply rex_pumping.
       + apply H0.
         assumption.
-      + omega.
+      + lia.
     }
     apply rex_pump_to_pump; auto.
   Qed.
@@ -207,7 +206,6 @@ Section Pumping.
 End Pumping.
 
 Module Examples.
-  Import Omega.
   Import RegexNotations.
   Import LangNotations.
   Import Lang.
@@ -315,7 +313,7 @@ Module Examples.
     split; auto.
     rewrite <- Hlen in H0.
     rewrite app_length in H0.
-    rewrite plus_assoc.
+    rewrite Nat.add_assoc.
     assumption.
   Qed.
 
@@ -352,7 +350,7 @@ Module Examples.
       rewrite app_length.
       Search (length (pow1 _ _)).
       rewrite pow1_length.
-      omega.
+      lia.
     - unfold In.
       unfold Clogs.
       intros.
@@ -394,7 +392,7 @@ Module Examples.
       apply pow1_a_b_inv_eq in N; auto.
       destruct N as (L, R).
       subst.
-      repeat rewrite <- plus_assoc in *.
+      repeat rewrite <- Nat.add_assoc in *.
       apply plus_inv_eq_r in R.
       apply plus_inv_eq_r in R.
       (* We now have to show that |y| + b = b *)
@@ -424,7 +422,7 @@ Module Examples.
     split; auto.
     rewrite <- Hlen in H0.
     rewrite app_length in H0.
-    rewrite <- plus_assoc in *.
+    rewrite <- Nat.add_assoc in *.
     apply pow1_plus_xy in H0.
     destruct H0 as (Ha, Hb).
     symmetry in Hb.
@@ -452,7 +450,7 @@ Module Examples.
       rewrite app_length.
       Search (length (pow1 _ _)).
       rewrite pow1_length.
-      omega.
+      lia.
     - unfold In.
       unfold Clogs.
       intros.
@@ -496,7 +494,7 @@ Module Examples.
       subst.
       rewrite app_length in *.
       (* Normalize addition, like we did with app *)
-      repeat rewrite <- plus_assoc in *.
+      repeat rewrite <- Nat.add_assoc in *.
       (* We now have to show that |y| + b = b *)
       apply plus_inv_eq_r in R.
       apply plus_inv_eq_r in R.

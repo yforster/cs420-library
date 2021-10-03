@@ -1,7 +1,7 @@
 Require Coq.Strings.Ascii.
 Require Coq.Lists.List.
 Require Coq.Arith.PeanoNat.
-Require Coq.omega.Omega.
+Require Import Coq.micromega.Lia.
 Require Coq.Classes.Morphisms.
 Require Import Turing.Util.
 Require Import Turing.Lang.
@@ -1008,8 +1008,6 @@ Section Pumping.
       reflexivity.
   Qed.
 
-  Import Omega.
-
   Lemma pumping_constant_inv_app_1:
     forall re1 re2 (s1 s2:word),
     pumping_constant re1 + pumping_constant re2 <= length (s1 ++ s2) ->
@@ -1018,7 +1016,7 @@ Section Pumping.
   Proof.
     intros.
     rewrite app_length in *.
-    omega.
+    lia.
   Qed.
 
   Lemma pumping_constant_inv_app_2:
@@ -1038,7 +1036,7 @@ Section Pumping.
       split. {
         intros N; inversion N.
       }
-      auto using Nat.lt_le_incl. 
+      auto using PeanoNat.Nat.lt_le_incl. 
     }
     right.
     assumption.
@@ -1050,14 +1048,14 @@ Section Pumping.
     RexPump re s.
   Proof.
     intros re s Hmatch.
-    induction Hmatch; simpl; intros Hlen; try omega.
+    induction Hmatch; simpl; intros Hlen; try lia.
     - subst.
       destruct pumping_constant_inv_app_1 with (re1:=re1) (re2:=re2) (s1:=s1) (s2:=s2)
         as  [? | []];
         auto using rex_pump_app_l, pump_app_r.
-    - assert (H : pumping_constant re1 <= length s1) by omega.
+    - assert (H : pumping_constant re1 <= length s1) by lia.
       auto using rex_pump_union_l.
-    - assert (H : pumping_constant re2 <= length s2) by omega.
+    - assert (H : pumping_constant re2 <= length s2) by lia.
       auto using rex_pump_union_r.
     - inversion Hlen as [|?].
       apply pumping_constant_neq_0 in H.
