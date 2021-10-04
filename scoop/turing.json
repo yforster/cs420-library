@@ -3,8 +3,8 @@
     "description": "The foundations of the Theory of Computation formalized in Coq.",
     "license": "MIT",
     "version": "2021.09.1",
-    "url": "https://cogumbreiro.github.io/teaching/cs420/s20/turing.zip",
-    "hash": "7ec8f103995a987c4ab5a9bb4b4341dff00d3fd63c5113532ca4f4de5a4cad7b",
+    "url": "https://cogumbreiro.github.io/teaching/cs420/f21/turing.zip",
+    "hash": "4513e3dbd45c3f2efbb2b4942ef88be98045e99c2412dd727846029c02f4efc8",
     "depends": "coq@2021.02.1",
     "installer": {
       "script": "Copy-Item \"$dir\\Turing\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\" -Force -Recurse"
