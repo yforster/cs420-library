@@ -14,7 +14,7 @@ build:8.10.0:
 #    paths: [turing-coq-8.10.0.tar.bz2]
 
 build:8.11.0:
-  image: coqorg/coq:8.11.0
+  image: coqorg/coq:8.11
   script:
     - make
     - make bdist VERSION=
