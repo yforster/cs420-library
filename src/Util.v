@@ -2,6 +2,7 @@ Require Import Coq.Arith.Plus.
 Require Import Coq.Arith.PeanoNat.
 Require Import Coq.Lists.List.
 Require Coq.Strings.Ascii.
+Require Coq.Arith.Minus.
 Import ListNotations.
 
 Lemma le_plus_trans_rev:
@@ -22,7 +23,9 @@ Lemma le_to_plus:
   exists z, x + z = y.
 Proof.
   intros.
-  eauto with *.
+  apply Minus.le_plus_minus_r in H.
+  exists (y - x).
+  assumption.
 Qed.
 
 Lemma plus_inv_eq_r:
