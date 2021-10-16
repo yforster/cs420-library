@@ -34,10 +34,3 @@ build:8.10.2:
     - make
     - make bdist VERSION=
 
-build:linuxbrew:
-  image: linuxbrew/linuxbrew
-  before_script:
-  - brew install coq
-  script:
-    - make
-    - make bdist VERSION=
