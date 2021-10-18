@@ -1185,6 +1185,7 @@ Section Rewrites.
 
 End Rewrites.
 
+
 Module Examples.
   Import Ascii.
   Import Util.
@@ -1201,24 +1202,49 @@ Module Examples.
     L1 == fun w => exists w', w = w' ++ ["a"].
   Proof.
     unfold L1.
+    (* When to unfold Equiv?
+       - If the language only uses operators, then use rewrite rules.
+       - If the language has a general specification (ie, without language
+         operators, then you must unfold Equiv.
+    *)
     unfold Equiv.
+    (* A proof of equivalence consists of using destructor-lemmas on the
+       assumption and constructor-lemmas to conclude.
+       *)
     split; intros.
-    - Search (_ >> _).
+    - Search (In _ (_ >> _)).
+      (* 
+       To note:
+        - Lemmas that end with _inv destruct the assumption
+        - Lemmas that end with _in_inv destruct assumptions In _ _
+
+       Thus, app_in_inv destructructs an assumption that holds an App
+      
+       Not to be confused with lemmas that start with app_in_,
+       they are *constructors*, which is necessary in the next goal.
+      *)
       apply app_in_inv in H.
       destruct H as (wa, (wb, (?, (Ha, Hb)))).
       subst.
       unfold In.
+      Search (In _ (Char _ )).
       apply char_in_inv in Hb.
       subst.
       exists wa.
       reflexivity.
-    - unfold In in H.
+    - (* This is an arbitrary In relation, so we must open it. *)
+      unfold In in H.
+      (* Destruct its contents as much as possible. *)
       destruct H as (wa, H).
+      (* Take care of equations *)
       subst.
+      (* Search for constructors of App: *)
       Search (In (_ ++ _) ( _ >> _)).
       apply app_in_eq.
-      + apply all_in.
-      + apply char_in.
+      + Search (In _ All).
+        apply all_in.
+      + Search (In _ (Char _)).
+        apply char_in.
   Qed.
 
   (** Show that string "a" is in L1. *)
@@ -1257,6 +1283,7 @@ Module Examples.
   Lemma nil_not_in_l1: ~ In [] L1.
   Proof.
     unfold L1; intros N.
+    Search (In _ (_ >> _)).
     apply app_in_inv in N.
     destruct N as (w1, (w2, (H1, (H2, H3)))).
     (* We gather that (H1) w1 ++ w2 is the empty string *) 
@@ -1279,6 +1306,25 @@ Module Examples.
     - apply all_in.
     - apply char_in.
     - reflexivity.
+  Qed.
+
+  (* An example that uses rewrites. *)
+  Goal
+    (("a" >> {}) * U "a") * == "a" *.
+  Proof.
+    (* Nil and Void are always great candidates to start your search. *)
+    Search (_ >> {}).
+    (* We can simplify the App: *)
+    rewrite app_r_void_rw.
+    (* We note that we have another candidate, so we search *)
+    Search ({} *).
+    (* We simplify the void star. *)
+    rewrite star_void_rw.
+    (* Another candidate: *)
+    Search (Nil U _).
+    rewrite star_union_nil_rw.
+    (* Done. *)
+    reflexivity.
   Qed.
 
   Definition L2 : language := fun w => length w = 2.
