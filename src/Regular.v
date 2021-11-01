@@ -126,6 +126,7 @@ Section Pumping.
     length w >= p ->
     In w (Clogs L p) ->
     Clogged L p.
+
   (** Clogged languages are not regular.
       We show that a language is not regular by clogging it for all p >= 1. *)
   Lemma not_regular:
@@ -133,20 +134,33 @@ Section Pumping.
     (forall p, p >= 1 -> Clogged L p) ->
     ~ Regular L.
   Proof.
+    (* H: For any p >= 1, L is clogged starting with p *)
     intros.
+    (* Assume N: (L is regular) to reach a contradiction. *)
     intros N.
+    (* Since L is regular, then we can apply the pumping lemma. *)
     apply pumping in N.
-    destruct N as (p, (Hle, Hw)).
+    destruct N as (p, (Hle, Hw)). (* there is a p which we can pump *)
+    (* We have that p >= 1, so L is clogged on p *)
     assert (H := H _ Hle).
-    inversion H; subst; clear H.
-    assert (Hw := Hw w H0 H1).
-    inversion Hw; subst; clear Hw.
+    (* We cannot use Hw, so we are only left with H:Clogged L p,
+       let us open it. *)
+    (* We now know that there is a string `w` in `L` that clogs `L`. *)
+    inversion H as (w, Hin, Hlen, Hc); subst; clear H.
+    (* Let us use string `w` in the pumping of L *)
+    assert (Hw := Hw w Hin Hlen).
+    (* If w is in the pumping of L, then we can pump it for any i *)
+    inversion Hw as (x, y, z, ?, ?, ?, Ha); subst; clear Hw.
+    (* But we recall that w is clogged (H2), so there is some i that is not in L *)
     assert (Hi: exists i, ~ In (x ++ (pow y i) ++ z) L). {
-      auto.
+      apply Hc.
+      - reflexivity.
+      - assumption.
+      - assumption.
     }
     destruct Hi as (i, Hi).
     contradict Hi.
-    auto.
+    apply Ha.
   Qed.
 
   Lemma equiv_clogs_impl:
