@@ -61,8 +61,8 @@ $ make install
 
 # Coverage
 
-In this project, we are formalizing some content of the book Introduction to the
-textbook Theory of Computation, by Michael Sipser, 3<sup>rd</sup> edition.
+In this project, we are formalizing some content of the textbook Introduction to the
+Theory of Computation, by Michael Sipser, 3<sup>rd</sup> edition.
 
 ## Chapter 1: `Regular.v`
 * [x] Theorem 1.70: Pumping lemma for regular languages
