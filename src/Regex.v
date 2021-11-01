@@ -79,10 +79,6 @@ Proof.
   apply accept_char.
 Qed.
 
-Goal ["a"] \in "a".
-Proof.
-  apply accept_char.
-Qed.
 
 Goal ["a"; "b"] \in "a" ;; "b".
 Proof.
@@ -1142,7 +1138,7 @@ Module Examples.
   Import RegexNotations.
   Open Scope lang_scope.
   Open Scope char_scope. (* Ensure by default we are representing characters. *)
-  
+  	
   (** Any string that ends with "a" *)
   Definition R1 : regex := r_all ;; "a".
 
@@ -1194,22 +1190,11 @@ Module Examples.
     (* Since acceptance was inductively defined, we can
        use inversion directly in our assumptions. *)
     inversion N; subst; clear N.
-    (* H4: [] = s1 ++ s2 *)
-    (* From (H4) we can conclude that s1=[] and s2=[] *)
-    destruct s1. {
-      (* s1 = [] *)
-      destruct s2. {
-        (* s2 = [] *)
-        (* Note that we now find our contradiction, since [] \in "a",
-           which is impossible *)
-        inversion H2.
-      }
-      (* s2 <> [] *)
-      (* Note the absurd assumption H4: [] = a :: s2 *)
+    inversion H2; subst; clear H2.
+    induction s1. {
+      simpl in H4.
       inversion H4.
     }
-    (* s1 <> [] *)
-    (* Note the absurd assumption H4: [] = a :: s2 *)
     inversion H4.
   Qed.
 
