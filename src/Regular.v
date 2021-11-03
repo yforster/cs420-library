@@ -488,7 +488,7 @@ Module Examples.
     auto with *.
   Qed.
 
-  Lemma l4_not_regular_alt:
+  Lemma l4_not_regular_v2:
     ~ Regular Turing.Lang.Examples.L4.
   Proof.
     apply not_regular_ex.
@@ -557,7 +557,7 @@ Module Examples.
       inversion X.
   Qed.
 
-  Lemma l4_not_regular_alt:
+  Lemma l4_not_regular_v3:
     ~ Regular Turing.Lang.Examples.L4.
   Proof.
     apply not_regular.
