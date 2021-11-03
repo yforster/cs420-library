@@ -111,6 +111,20 @@ Section Pumping.
       exists i,
       ~ In (x ++ (pow y i) ++ z) L.
 
+  Lemma in_clogs:
+    forall w p L,
+    (forall x y z,
+    w = x ++ y ++ z ->
+    y <> [] ->
+    length (x ++ y) <= p ->
+    exists i, ~ In (x ++ (pow y i) ++ z) L) ->
+    In w (Clogs L p).
+  Proof.
+    intros.
+    unfold Clogs.
+    intros; auto.
+  Qed.
+
   (**
 
   A language is clogged if we can find one word in language [L] that clogs [L].
@@ -161,6 +175,28 @@ Section Pumping.
     destruct Hi as (i, Hi).
     contradict Hi.
     apply Ha.
+  Qed.
+
+  Lemma not_regular_ex:
+    forall (L:language),
+    (forall p, p >= 1 ->
+      exists w,
+      (
+        In w L /\
+        length w >= p /\ (
+          forall x y z,
+          (w = x ++ y ++ z ->
+           y <> [] ->
+           length (x ++ y) <= p ->
+           exists i,  ~ In (x ++ pow y i ++ z) L
+           )))) ->
+    ~ Regular L.
+  Proof.
+    intros.
+    apply not_regular.
+    intros.
+    destruct (H _ H0) as (w, (Ha, (Hb, Hc))); clear H.
+    apply clogged_def with (w:=w); auto.
   Qed.
 
   Lemma equiv_clogs_impl:
@@ -353,6 +389,7 @@ Module Examples.
     ~ Regular Turing.Lang.Examples.L4.
   Proof.
     apply not_regular.
+    (* Adversary picks `p` *)
     intros.
     rewrite Turing.Lang.Examples.l4_spec.
     (* We pick our word: *)
@@ -365,10 +402,12 @@ Module Examples.
       Search (length (pow1 _ _)).
       rewrite pow1_length.
       lia.
-    - unfold In.
-      unfold Clogs.
-      intros.
-      (* Goal 3: *)
+    - (* Finally, we show that our string clogs the language *)
+      Search (In _ (Clogs _ _)).
+      apply in_clogs.
+      (* Adversary gives x y z *)
+      intros x y z Ha Hneq Hlen.
+      (* We pick the number of pumps that breaks: *)
       exists 2.
       (* Open up the definition of In *)
       unfold In.
@@ -383,8 +422,8 @@ Module Examples.
       rewrite app_nil_r in N.
       (* We start working on our assumption H0, this is the first step of the slides:
          There is some b such that lenght (x ++ y) + b = p *)
-      apply xyz_rw in H0; auto.
-      destruct H0 as (b, (_, Hb)).
+      apply xyz_rw in Ha; auto.
+      destruct Ha as (b, (_, Hb)).
       (* We now separate x, y, and z in Hb *)
       apply pow1_plus_xy in Hb.
       destruct Hb as (Hx, Hyz).
@@ -447,6 +486,75 @@ Module Examples.
     rewrite app_length.
     rewrite pow1_length.
     auto with *.
+  Qed.
+
+  Lemma l4_not_regular_alt:
+    ~ Regular Turing.Lang.Examples.L4.
+  Proof.
+    apply not_regular_ex.
+    (* Adversary: picks p >= 1 *)
+    intros p Hge.
+    (* We pick a string *)
+    exists (pow1 "a" p ++ pow1 "b" p) % list.
+    repeat split.
+    - unfold Examples.L4, In.
+      exists p.
+      apply app_in_eq.
+      + apply pow_char_in.
+      + apply pow_char_in.
+    - Search (length (_ ++ _)).
+      rewrite app_length.
+      Search (length (pow1 _ _)).
+      rewrite pow1_length.
+      lia.
+    - (* Adversary picks x y z *)
+      intros x y z Ha Hneq Hlen.
+      (* We pick 2 *)
+      exists 2.
+      intros N.
+      (* Break down some n *)
+      destruct N as (n, N).
+      (* We don't want pow in N, so we compute function pow with simpl: *)
+      simpl in N.
+      (* We remove the ++ [] *)
+      Search (_ ++ []).
+      rewrite app_nil_r in N.
+      (* We start working on our assumption H0, this is the first step of the slides:
+         There is some b such that lenght (x ++ y) + b = p *)
+      apply xyz_rw_ex in Ha; auto.
+      destruct Ha as (b, (Hz, (_,(Hb,(Hc,Hd))))).
+
+      (* We note that we can simplify away p *)
+      rewrite Hz in Hd; clear Hz.
+
+      (* Similarly, we simplify x, y, and z in N. *) 
+      rewrite Hb in N; clear Hb.
+      rewrite Hc in N; clear Hc.
+      rewrite Hd in N; clear Hd.
+
+      (* Next, we want to simplify all of our powers of a into a single base at the
+         RHS of the equality in N, so that we get a^x b^y = a^v b^w *)
+      (* Normalize app (++) *) 
+      repeat rewrite app_assoc in *.
+      (* Then, we eagerly join the terms with the same base *) 
+      repeat rewrite pow1_plus in N.
+      assert ("a" <> "b") by (intros M; inversion M).
+      Search (In _ (_ >> _)).
+      apply pow_pow_in_inv in N.
+      apply pow1_a_b_inv_eq in N; auto.
+      destruct N as (L, R).
+      subst.
+      rewrite app_length in *.
+      (* Normalize addition, like we did with app *)
+      repeat rewrite <- Nat.add_assoc in *.
+      (* We now have to show that |y| + b = b *)
+      apply plus_inv_eq_r in R.
+      apply plus_inv_eq_r in R.
+      (* Thus, |y| = 0 *)
+      assert (X: length y = 0). { lia. }
+      (* However, from y <> [], we have that |y| > 0*)
+      destruct y. { contradiction. }
+      inversion X.
   Qed.
 
   Lemma l4_not_regular_alt:
