@@ -385,8 +385,7 @@ Module Decidability (Tur: Turing).
       | Loop => run m1 i = Loop /\ run m2 i = Loop
       end.
 
-  Local Definition par_mach M1 M2 : machine :=
-    Build (fun w =>
+  Definition par_mach M1 M2 (w: input) : Prog :=
       plet b <- Call M1 w \\ Call M2 w in
       match b with
       | pleft true
@@ -394,7 +393,7 @@ Module Decidability (Tur: Turing).
       | pright false => ACCEPT
       | _ => REJECT
       end
-    ).
+  .
 
   Local Lemma lang_accept_rev:
     forall m w,
@@ -434,35 +433,55 @@ Module Decidability (Tur: Turing).
   | disjoint_reject_accept:
     DisjointResults Reject Accept.
 
-  Local Lemma par_mach_lang:
+  Lemma par_mach_lang:
     forall m1 m2,
     (forall i, DisjointResults (run m2 i) (run m1 i)) ->
-    Recognizes (par_mach m1 m2) (Lang m1).
+    PRecognizes (par_mach m1 m2) (Lang m1).
   Proof.
     unfold par_mach.
-    unfold Recognizes.
     intros m1 m2 Hr; intros.
-    rewrite <- run_build.
-    split.
+    apply p_recognizes_def.
     + intros.
+      (* Show that whenever the implementation accepts, then the language
+         accepts. We do this by thinking about the execution top to bottom:
+         how did reached Accept?
+         *)
+      (* We perform an inversion on assumption H, which will return a case per
+         constructor for par, since the first instructio nis a parallel call. *)
       inversion H; subst; clear H; run_simpl_all; auto.
-      * destruct b; run_simpl_all.
-        assumption. (* Definition of Lang *) 
-      (* * rewrite H in *.
-        run_simpl. *)
-      * (* Absurd case *)
+      * (* Case par_l_seq: m1 terminated*)
+        (* If m1 terminates, then we have:
+          Run (if b then ACCEPT else REJECT) Accept
+          We perform a case analysis on b to figure out what was handled.
+        *)
         destruct b; run_simpl_all.
+        (* Notice that m1 accepted, thus i is in L *)
+        assumption. (* Definition of Lang *) 
+      * (* Case par_r_seq: m2 terminated *)
+        (* If m2 terminates, then we have:
+          Run (if b then REJECT else ACCEPT) Accept
+          We perform a case analysis on b to figure out what was handled.
+        *)
+        destruct b; run_simpl_all.
+        (* Our assumption Hr is saying that m1 and m2 cannot both reject.
+           Thus, we use Hr to reach a contradiction. *)
         assert (Hr := Hr i).
         rewrite H in *.
         rewrite H1 in *.
         inversion Hr.
-      * destruct (par_choice _ _ _ _) eqn:Hp;
+      * (* Case par_r_both: both machines terminated at the same time *)
+        (* since we have a match stuck on par_choice, we perform a case analysis
+           on its output. *)
+        destruct (par_choice _ _ _ _) eqn:Hp; 
         apply par_choice_spec in Hp; inversion Hp; subst; clear Hp;
         destruct b; run_simpl_all; try assumption.
         inversion H5; subst; clear H5.
-        - symmetry in H1.
+        - (* m1 accepts and m2 rejects *)
+          symmetry in H1.
+          (* Trivial by definition of lang *)
           assumption.
-        - (* Absurd case *)
+        - (* m1 rejects and m2 rejects *)
+          (* Absurd, because both machines cannot reject. *)
           assert (Hr := Hr i).
           rewrite <- H1 in Hr.
           rewrite H0 in *.
@@ -485,10 +504,10 @@ Module Decidability (Tur: Turing).
       * apply run_par_l_accept; auto using run_ret.
   Qed.
 
-  Local Lemma par_run_spec:
+  Lemma par_run_spec:
     forall m1 m2,
     (forall i, DisjointResults (run m2 i) (run m1 i)) ->
-    par_run m1 m2 (par_mach m1 m2).
+    par_run m1 m2 (Build (par_mach m1 m2)).
   Proof.
     intros m1 m3 Hr.
     unfold par_run.
@@ -524,16 +543,17 @@ Module Decidability (Tur: Turing).
       auto.
   Qed.
 
-  Local Lemma par_run_exists:
+  Lemma par_run_exists:
     forall m1 m2,
     (forall i, DisjointResults (run m2 i) (run m1 i)) ->
     exists m3,
       Recognizes m3 (Lang m1) /\ par_run m1 m2 m3.
   Proof.
     intros.
-    exists (par_mach m1 m2).
+    exists (Build (par_mach m1 m2)).
     split.
-    - auto using par_mach_lang.
+    - rewrite <- p_recognizes_rw.
+      auto using par_mach_lang.
     - auto using par_run_spec.
   Qed.
 
