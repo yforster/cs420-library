@@ -5,188 +5,109 @@ Module Decidability (Tur: Turing).
   Import Tur.
   Module B := TuringBasics Tur.
   Import B.
-*)
+ *)
+
+(* Theorem Rice (p : input -> Prop) : *)
+(*   (exists i, p i) -> (exists j, p j) -> *)
+(*   (forall M M' : machine, (forall i, run M i <> Loop <-> run M' i <> Loop) -> *)
+(*                      p (encode_machine M) <-> p (encode_machine M')) *)
+(*   -> ~ Decidable p. *)
+
   Section Defs.
+  Definition D_tm : lang := fun M =>
+    run (decode_machine M) M <> Accept.
+
+  Lemma D_tm_not_recognizable :
+    ~ Recognizable D_tm.
+  Proof.
+    intros [M H].
+    unfold Recognizes, D_tm in H.
+    specialize (H (encode_machine M)).
+    rewrite decode_encode_machine_rw in H.
+    tauto.
+  Qed.
+
+  Lemma D_tm_not_decidable :
+    ~ Decidable D_tm.
+  Proof.
+    intros H.
+    eapply D_tm_not_recognizable.
+    now eapply decidable_to_recognizable.
+  Qed.
+
   Definition A_tm : lang := fun p =>
     let (M, w) := decode_machine_input p in
     run M w = Accept.
 
-  (** If [d] recognizes A_tm and machine d runs <M,w> *)
-  Local Lemma a_tm_run_reject:
-    forall d,
-    Recognizes d A_tm ->
-    forall w M,
-    run d (encode_machine_input M w) = Reject -> 
-    run M w <> Accept.
+  (* Definition nA_tm : lang := fun p => *)
+  (*   let (M, w) := decode_machine_input p in *)
+  (*   run M w <> Accept. *)
+
+  Lemma run_call_eq' : forall (m : machine) (i : input) (r : result), run m i = r <-> Run (Call m i) r.
   Proof.
-    intros.
-    intros N.
-    apply recognizes_run_reject with (L:=A_tm) in H0; auto.
-    unfold A_tm in H0.
-    rewrite decode_encode_machine_input_rw in *.
-    contradiction.
+    intros m i r. split.
+    - eapply run_call_eq.
+    - intros H. inversion H; subst. reflexivity.
   Qed.
 
-  Local Lemma a_tm_run_loop:
-    forall d,
-    Recognizes d A_tm ->
-    forall w m,
-    run d (encode_machine_input m w) = Loop -> 
-    run m w <> Accept.
+  (** Corollary 4.23 *)
+  Lemma nA_tm_not_recognizable :
+    ~ Recognizable (compl A_tm).
   Proof.
-    intros.
-    intros N.
-    apply recognizes_run_loop with (L:=A_tm) in H0; auto.
-    unfold A_tm in H0.
-    rewrite decode_encode_machine_input_rw in *.
-    contradiction.
+    intros [R H].
+    eapply D_tm_not_recognizable.
+    exists (Build (fun p => Call R (encode_machine_input (decode_machine p) p))).
+    intros i.
+    red in H.
+    rewrite <- run_build.
+    rewrite <- run_call_eq'.
+    rewrite H.
+    unfold A_tm, compl, D_tm.
+    now rewrite decode_encode_machine_input_rw.
   Qed.
 
-  Local Lemma a_tm_run_accept:
-    forall d,
-    Recognizes d A_tm ->
-    forall w m,
-    run d (encode_machine_input m w) = Accept -> 
-    run m w = Accept.
+  Lemma run_seq_eq A B r :
+    Run (Seq A B) r <->
+      exists r', Run A r' /\ 
+              match r' with Accept => Run (B true) r | Reject => Run (B false) r | Loop => r = Loop end.
   Proof.
-    intros.
-    apply recognizes_run_accept with (L:=A_tm) in H0; auto.
-    unfold A_tm in *.
-    rewrite decode_encode_machine_input_rw in *.
-    assumption.
+    split.
+    - inversion 1; subst.
+      + eexists. split; eauto. inversion H3; subst; eauto.
+      + eexists. split; eauto. reflexivity.
+    - intros (r' & H1 & H2).
+      destruct r'.
+      + econstructor; eauto. econstructor.
+      + econstructor; eauto. econstructor.
+      + subst. now eapply run_seq_loop.
   Qed.
 
-  (* -------------------------------------------------------------------------- *)
-
-  Local Definition Negator (D:machine) :=
-    fun p =>
-      let M := decode_machine p in
-      neg (run D (encode_machine_input M p)) = Accept.
-
-  (** [D] recognizes [A_tm].
-      N accepts <M>, which means that D rejects <M, <M>>.
-      Thus, M with <M> either loops or rejects, as recognizing
-      A_tm is weaker then returning the same result.
-    *)
-
-  Local Lemma run_negator_accept:
-    forall N D w,
-    Recognizes D A_tm ->
-    Recognizes N (Negator D) ->
-    run N w = Accept ->
-    run (decode_machine w) w <> Accept.
+  Lemma Decidable_complement p : (* direct proof *)
+    Decidable p -> Decidable (compl p).
   Proof.
-    intros.
-    apply recognizes_run_accept with (L:=Negator D) in H1; auto.
-    unfold Negator in *.
-    rewrite neg_accept_rw in *.
-    apply a_tm_run_reject in H1; auto.
-  Qed.
-
-  Local Lemma run_negator_reject:
-    forall N D w,
-    Recognizes D A_tm ->
-    Recognizes N (Negator D) ->
-    run N w = Reject ->
-    Decider D ->
-    run (decode_machine w) w = Accept.
-  Proof.
-    intros.
-    apply recognizes_run_reject with (L:=Negator D) in H1; auto.
-    unfold Negator in H1.
-    rewrite neg_accept_rw in *.
-    remember (encode_machine_input (decode_machine w) w) as j.
-    apply decider_not_reject_to_accept in H1; auto.
-    subst.
-    apply a_tm_run_accept in H1; auto.
-  Qed.
-
-  Local Lemma run_negator_loop:
-    forall N D w,
-    Recognizes D A_tm ->
-    Recognizes N (Negator D) ->
-    run N w = Loop ->
-    Decider D ->
-    run (decode_machine w) w = Accept.
-  Proof.
-    intros.
-    apply recognizes_run_loop with (L:=Negator D) in H1; auto.
-    unfold Negator in H1.
-    rewrite neg_accept_rw in *.
-    apply decider_not_reject_to_accept in H1; auto.
-    apply a_tm_run_accept in H1; auto.
-  Qed.
-
-  (**
-    This new TM calls D to determine what M does when the input to M is its own
-    description <M, <M>>. Once D has determined this information, it does the
-    opposite. That is, it rejects if M accepts and accepts if M does not accept.
-
-    The following is a description of [negator].
-      negator = “On input <M>, where M is a TM :
-          1. Run D on input <M, <M>>.
-          2. Output the opposite of what D outputs. That is, if D accepts,
-            reject ; and if D rejects, accept.”
-  *)
-  Local Definition negator D w :=
-    let M := decode_machine w in
-    (* D decides A_TM, thus we are running M with <M> *)
-    mlet b <- Call D <[ M , w ]> in
-    halt_with (negb b).
-
-  Local Lemma negator_recognizes:
-    forall H,
-    Recognizes (Build (negator H)) (Negator H).
-  Proof.
-    intros.
-    unfold Recognizes.
-    split; intros. {
-      unfold negator, Negator in *.
-      run_simpl_all.
-      inversion H0; subst; clear H0.
-      run_simpl_all.
-      reflexivity.
-    }
-    unfold Negator in *.
-    run_simpl_all.
-    unfold negator.
-    apply run_seq_reject.
-    - apply run_call_eq.
-      assumption.
-    - apply run_ret.
-  Qed.
-
-  Lemma no_decides_a_tm:
-    ~ exists m, Decides m A_tm.
-  Proof.
-    unfold not.
-    (* We assume that A_TM is decidable and obtain a contradiction. *)
-    intros N.
-    (* Suppose that D is a decider for A_TM. *)
-    destruct N as (D, is_dec).
-    (* Now we construct a new Turing machine [negator] with D as a subroutine. *)
-    assert (X:= negator_recognizes D).
-    remember (Build (negator D)) as N.
-    destruct is_dec as (Hrec, Hdec).
-    (* What happens when we run [negator] with its own description <negator> as
-      input? *)
-    remember (run N (encode_machine N)) as r.
-    symmetry in Heqr.
-    (* (Let us duplicate Heqr as we will need it later.) *)
-    assert (Hx := Heqr).
-    destruct r.
-    - subst.
-      apply run_negator_accept with (D:=D) in Heqr; auto.
-      rewrite decode_encode_machine_rw in *.
-      contradiction.
-    - apply run_negator_reject with (D:=D) in Heqr; eauto.
-      rewrite decode_encode_machine_rw in *.
-      rewrite Hx in *.
-      inversion Heqr.
-    - apply run_negator_loop with (D:=D) in Heqr; eauto.
-      rewrite decode_encode_machine_rw in *.
-      rewrite Hx in *.
-      inversion Heqr.
+    unfold compl. intros [M [H1 H2] ].
+    exists (Build (fun w => mlet b <- Call M w in halt_with (negb b))).
+    split.
+    - red in H1. intros i.
+      rewrite <- run_build.
+      rewrite run_seq_eq.
+      setoid_rewrite <- run_call_eq'.
+      rewrite <- H1.
+      cbn. split.
+      + intros (r' & <- & H4).
+        destruct (run M i); inversion H4. congruence.
+      + intros E.
+        exists Reject. split.
+        specialize (H2 i).
+        destruct (run M i); try congruence.
+        econstructor.
+    - intros i.
+      rewrite <- run_build.
+      rewrite run_seq_eq.
+      setoid_rewrite <- run_call_eq'.
+      intros (r' & <- & Hr').
+      eapply (H2 i).
+      now destruct (run M i); inversion Hr'.
   Qed.
 
   (** Theorem 4.11, pp 207 *)
@@ -194,14 +115,10 @@ Module Decidability (Tur: Turing).
   Theorem a_tm_undecidable:
     ~ Decidable A_tm.
   Proof.
-    intros N.
-    destruct N as (m, N).
-    assert (Hx: exists m, Decides m A_tm). {
-      exists m.
-      assumption.
-    }
-    apply no_decides_a_tm in Hx.
-    assumption.
+    intros H.
+    eapply Decidable_complement in H.
+    eapply nA_tm_not_recognizable.
+    now eapply decidable_to_recognizable.
   Qed.
 
   (* -------------------------------------------------------------------------- *)
