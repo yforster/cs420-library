@@ -67,7 +67,14 @@ Require Import Coq.Logic.Classical_Prop.
     | Loop.
 
   (** We can run a machine and obtain its run result. *)
-  Parameter run: machine -> input -> result.
+  Parameter Exec: machine -> input -> result -> Prop.
+  Parameter exec_fun: forall m i r1 r2,
+    Exec m i r1 ->
+    Exec m i r2 ->
+    r1 = r2.
+  Parameter exec_exists:
+    forall m i,
+    exists r, Exec m i r.
   (** When running two programs in parallel, we get to know
       which of the two programs has terminated and how they
       terminated. *)
@@ -136,8 +143,9 @@ Require Import Coq.Logic.Classical_Prop.
     Run (Ret r) r
   | run_call:
     (** Calling a machine is the same as using function `run`. *)
-    forall m i,
-    Run (Call m i) (run m i)
+    forall m i r,
+    Exec m i r ->
+    Run (Call m i) r
   | run_seq_cont:
     (** If `p` terminates and returns `b`, then we can
        proceed with the execution of `q b`. *) 
@@ -198,12 +206,8 @@ Require Import Coq.Logic.Classical_Prop.
   (** We leave unspecified how we convert a program to a Turing machine. *)
   Parameter Build : (input -> Prog) -> machine.
   (** We specify the behavior of `Build` *)
-  Axiom run_build: forall p i r, Run (p i) r <-> run (Build p) i = r.
-(*End Turing.*)
-(*
-Module TuringBasics (Tur : Turing).
-  Import Tur.
-*)
+  Axiom run_build: forall p i r, Run (p i) r <-> Exec (Build p) i r.
+
   (** Given a machine and a string, encodes the pair as a string.
       In the book, this corresponds to notation <M, w>. *)
   Definition encode_machine_input (M:machine) (w:input) : input :=
@@ -284,7 +288,7 @@ Module TuringBasics (Tur : Turing).
   (** We use capital language to represent the recognized langauge of a machine.
       This corresponds to notation L(M). *)
 
-  Definition Lang (m:machine) : lang := fun i => run m i = Accept.
+  Definition Lang (m:machine) : lang := fun i => Exec m i Accept.
 
   (** We use a direct definition of recognition:
       The turing machine accepts input i (with `run m i`)
@@ -292,12 +296,12 @@ Module TuringBasics (Tur : Turing).
        *)
 
   Definition Recognizes (m:machine) (L:lang) :=
-    forall i, run m i = Accept <-> L i.
+    forall i, Exec m i Accept <-> L i.
 
   Lemma recognizes_def:
     forall m (L:lang),
-    (forall i, run m i = Accept -> L i) ->
-    (forall i, L i -> run m i = Accept) ->
+    (forall i, Exec m i Accept -> L i) ->
+    (forall i, L i -> Exec m i Accept) ->
     Recognizes m L.
   Proof.
     intros.
@@ -468,21 +472,21 @@ Module TuringBasics (Tur : Turing).
     Lemma recognizes_run_reject:
       forall m L i,
       Recognizes m L ->
-      run m i = Reject ->
+      Exec m i Reject ->
       ~ L i.
     Proof.
       intros.
       intros N.
       apply H in N.
-      rewrite N in *.
-      inversion H0.
+      assert (Hx: Reject = Accept) by eauto using exec_fun.
+      inversion Hx.
     Qed.
 
     Lemma recognizes_run_accept:
       forall m L,
       Recognizes m L ->
       forall i,
-      run m i = Accept ->
+      Exec m i Accept ->
       L i.
     Proof.
       intros.
@@ -495,18 +499,22 @@ Module TuringBasics (Tur : Turing).
       forall m L i,
       Recognizes m L ->
       ~ L i ->
-      run m i <> Accept.
+      forall r,
+      Exec m i r ->
+      r <> Accept.
     Proof.
       intros.
       intros N.
-      apply recognizes_run_accept with (L:=L) in N; auto.
+      subst.
+      assert (L i). { eapply recognizes_run_accept; eauto. }
+      contradiction.
     Qed.
 
     Lemma recognizes_accept:
       forall m L i,
       Recognizes m L ->
       L i ->
-      run m i = Accept.
+      Exec m i Accept.
     Proof.
       intros.
       apply H in H0.
@@ -517,14 +525,14 @@ Module TuringBasics (Tur : Turing).
       forall m L,
       Recognizes m L ->
       forall i,
-      run m i = Loop ->
+      Exec m i Loop ->
       ~ L i.
     Proof.
       intros.
       intros N.
       apply H in N.
-      rewrite N in *.
-      inversion H0.
+      assert (Hx: Loop = Accept) by eauto using exec_fun.
+      inversion Hx.
     Qed.
 
     Lemma lang_equiv:
@@ -568,7 +576,7 @@ Module TuringBasics (Tur : Turing).
     Lemma co_recognizes_run_accept:
       forall m L i,
       Recognizes m (compl L) ->
-      run m i = Accept ->
+      Exec m i Accept ->
       ~ L i.
     Proof.
       intros.
@@ -579,18 +587,22 @@ Module TuringBasics (Tur : Turing).
       forall m L i,
       Recognizes m (compl L) ->
       L i ->
-      run m i <> Accept.
+      forall r,
+      Exec m i r -> 
+      r <> Accept.
     Proof.
       intros.
       intros N.
-      apply recognizes_run_accept with (L:=compl L) in N; auto.
+      subst.
+      apply H in H1.
+      contradiction.
     Qed.
 
     Lemma co_recognizes_accept:
       forall m L i,
       Recognizes m (compl L) ->
       ~ L i ->
-      run m i = Accept.
+      Exec m i Accept.
     Proof.
       intros.
       unfold compl in *.
@@ -605,16 +617,16 @@ Module TuringBasics (Tur : Turing).
   Section Decidable.
     (** We define a decider as any Turing Machine that returns either Accept or
         Reject, but not Loop. *)
-    Definition Decider d := forall i, run d i <> Loop.
+    Definition Decider d := forall i r, Exec d i r -> r <> Loop.
 
     Lemma decider_def:
       forall d,
-      (forall i, run d i <> Loop) ->
+      (forall i r, Exec d i r -> r <> Loop) ->
       Decider d.
     Proof.
       intros.
       unfold Decider; intros.
-      auto.
+      eauto.
     Qed.
 
     Definition Decides m L := Recognizes m L /\ Decider m.
@@ -651,6 +663,17 @@ Module TuringBasics (Tur : Turing).
       assumption.
     Qed.
 
+    Lemma unrecognizable_to_undecidable:
+      forall L,
+       ~ Recognizable L ->
+       ~ Decidable L.
+    Proof.
+      intros.
+      intros N.
+      apply decidable_to_recognizable in N.
+      contradiction.
+    Qed.
+
     Lemma decides_to_recognizes:
       forall m L,
       Decides m L ->
@@ -664,7 +687,7 @@ Module TuringBasics (Tur : Turing).
     Lemma decides_run_reject:
       forall m L i,
       Decides m L ->
-      run m i = Reject ->
+      Exec m i Reject ->
       ~ L i.
     Proof.
       intros.
@@ -675,7 +698,7 @@ Module TuringBasics (Tur : Turing).
     Lemma decides_run_accept:
       forall m L i,
       Decides m L ->
-      run m i = Accept ->
+      Exec m i Accept ->
       L i.
     Proof.
       intros.
@@ -687,7 +710,7 @@ Module TuringBasics (Tur : Turing).
       forall m L i,
       Decides m L ->
       L i ->
-      run m i = Accept.
+      Exec m i Accept.
     Proof.
       intros.
       apply decides_to_recognizes in H.
@@ -698,25 +721,29 @@ Module TuringBasics (Tur : Turing).
       forall m,
       Decider m ->
       forall i,
-      run m i = Accept \/ run m i = Reject.
+      Exec m i Accept \/ Exec m i Reject.
     Proof.
       intros.
       unfold Decider in *.
       assert (H:=H i).
-      destruct (run m i); auto.
+      destruct (exec_exists m i) as (r, He);  auto.
+      assert (r <> Loop) by auto.
+      destruct r; auto.
       contradiction.
     Qed.
 
     Lemma decider_to_dec:
       forall m w r,
       Decider m ->
-      run m w = r ->
+      Exec m w r ->
       exists b, Dec r b.
     Proof.
       intros.
       apply decider_to_run with (i:=w) in H.
-      rewrite H0 in *.
-      destruct H;subst.
+      assert (Hx: r = Accept \/ r = Reject). {
+        intuition; eauto using exec_fun.
+      }
+      destruct Hx;subst.
       - exists true.
         auto using dec_accept.
       - exists false.
@@ -730,14 +757,11 @@ Module TuringBasics (Tur : Turing).
       exists r b, Run (Call m w) r /\ Dec r b.
     Proof.
       intros.
-      remember (run m w).
+      destruct (exec_exists m w) as (r, He).
       exists r.
       assert (Hx : exists b, Dec r b) by eauto using decider_to_dec.
       destruct Hx as (b, Hx).
-      exists b.
-      split; auto.
-      subst.
-      apply run_call.
+      eauto using run_call.
     Qed.
 
     Lemma decides_to_decider:
@@ -754,7 +778,7 @@ Module TuringBasics (Tur : Turing).
       forall m L i,
       Decides m L ->
       ~ L i ->
-      run m i = Reject.
+      Exec m i Reject.
     Proof.
       intros.
       destruct H.
@@ -766,45 +790,47 @@ Module TuringBasics (Tur : Turing).
     Qed.
 
     Lemma decider_no_loop:
-      forall m i,
+      forall m i r,
       Decider m ->
-      run m i <> Loop.
+      Exec m i r ->
+      r <> Loop.
     Proof.
       intros.
       intros N.
+      subst.
       unfold Decider in *.
-      assert (H := H i).
+      apply H in H0.
       contradiction.
     Qed.
 
     Lemma decides_no_loop:
       forall m L i,
       Decides m L ->
-      run m i <> Loop.
+      forall r,
+      Exec m i r ->
+      r <> Loop.
     Proof.
       intros.
       destruct H.
-      apply decider_no_loop.
-      assumption.
+      eapply decider_no_loop; eauto.
     Qed.
 
     Lemma decider_not_reject_to_accept:
       forall d i,
       Decider d ->
-      run d i <> Reject ->
-      run d i = Accept.
+      forall r,
+      Exec d i r ->
+      r <> Reject ->
+      r = Accept.
     Proof.
       intros.
-      apply decider_no_loop with (i:=i) in H.
-      destruct (run d i).
-      - trivial.
-      - contradiction.
-      - contradiction.
+      apply decider_no_loop in H0; auto.
+      destruct r; auto; contradiction.
     Qed.
-
+  (*
     Definition Predicate M f :=
-      (forall w, run M w = Accept <-> f w = true) /\
-      (forall w, run M w = Reject <-> f w = false). 
+      (forall w, Exec M w Accept <-> f w = true) /\
+      (forall w, Exec M w Reject <-> f w = false). 
 
     Lemma decider_to_predicate:
       forall M L,
@@ -848,29 +874,16 @@ Module TuringBasics (Tur : Turing).
       destruct H as (H1, H2).
       auto.
     Qed.
-
+*)
   End Decidable.
 
   Definition halt_with (b:bool) := Ret (if b then Accept else Reject).
 
   Definition Empty : lang := fun p => False.
   Definition IsEmpty M := Recognizes M Empty.
-  Definition NeverAccept M := (forall w, run M w <> Accept).
+  Definition NeverAccept M := (forall w r, Exec M w r -> r <> Accept).
 
   Section RUN.
-
-    Lemma run_call_eq:
-      forall m i r,
-      run m i = r ->
-      Run (Call m i) r.
-    Proof.
-      intros.
-      assert (Run (Call m i) (run m i)). {
-        apply run_call.
-      }
-      rewrite H in *.
-      assumption.
-    Qed.
 
     Lemma run_call_recognizes_accept:
       forall m L i,
@@ -879,7 +892,7 @@ Module TuringBasics (Tur : Turing).
       Run (Call m i) Accept.
     Proof.
       intros.
-      apply run_call_eq.
+      apply run_call.
       apply recognizes_accept with (m:=m) in H0; auto.
     Qed.
 
@@ -890,7 +903,7 @@ Module TuringBasics (Tur : Turing).
       Run (Call m i) Accept.
     Proof.
       intros.
-      apply run_call_eq.
+      apply run_call.
       apply decides_accept with (m:=m) in H0; auto.
     Qed.
 
@@ -901,7 +914,7 @@ Module TuringBasics (Tur : Turing).
       Run (Call m i) Reject.
     Proof.
       intros.
-      apply run_call_eq.
+      apply run_call.
       apply decides_reject with (m:=m) in H0; auto.
     Qed.
 
@@ -1037,28 +1050,36 @@ Module TuringBasics (Tur : Turing).
       apply run_ret.
     Qed.
 
-    Lemma run_fun_ex:
-      forall (p:input->Prog) i r1 r2,
-      Run (p i) r1 ->
-      Run (p i) r2 ->
-      r1 = r2.
-    Proof.
-      intros.
-      apply run_build in H.
-      apply run_build in H0.
-      rewrite H in H0.
-      assumption.
-    Qed.
-    (* XXX: https://gitlab.com/cogumbreiro/turing/-/issues/1 *)
+    Ltac clear_dec :=
+      match goal with
+        | [ H1: Dec ?r ?b1, H2: Dec ?r ?b2 |- _] =>
+          assert (Hx: b1 = b2) by eauto using dec_fun;
+          rewrite Hx in *;
+          clear H2 Hx
+        | [ H: Dec Loop _ |- _ ] => inversion H
+        end.
+
     Lemma run_fun:
-      forall p r1 r2,
+      forall p r1,
       Run p r1 ->
+      forall r2,
       Run p r2 ->
       r1 = r2.
     Proof.
-      intros.
-      assert (X := run_fun_ex (fun w => p) input_inhabited).
-      apply X; auto.
+      intros p r1 H; induction H; intros r' He;
+        inversion He; subst; clear He; auto;
+        (* In each case we have a bunch of Run's that are solved
+           by induction; we need to make sure we clear any dec's,
+           so that we can advance to the next IH *)
+        repeat match goal with
+        | [ H1: Run ?q ?r1, H2: Run ?q ?r2 |- _] =>
+          (
+            assert (r1 = r2) by eauto ||
+            assert (r2 = r1) by eauto
+          ); subst; clear H2; try clear_dec; auto
+        end;
+        try clear_dec; auto.
+      eauto using exec_fun.
     Qed.
 
   End RUN.
@@ -1236,9 +1257,10 @@ Module TuringBasics (Tur : Turing).
       forall (p:input->Prog) i, exists r, Run (p i) r.
     Proof.
       intros.
-      exists (run (Build p) i).
+      destruct (exec_exists (Build p) i) as (r, He).
+      exists r.
       apply run_build.
-      reflexivity.
+      assumption.
     Qed.
 
     Lemma run_exists:
@@ -1365,14 +1387,12 @@ Module TuringBasics (Tur : Turing).
     Qed.
 
     Lemma p_halts_call:
-      forall m w,
-      run m w <> Loop ->
+      forall m w r,
+      Exec m w r ->
+      r <> Loop ->
       PHalts (Call m w).
     Proof.
-      intros.
-      apply p_halts_def with (run m w).
-      - apply run_call.
-      - assumption.
+      eauto using p_halts_def, run_call.
     Qed.
 
     Lemma p_halts_call_decider:
@@ -1382,18 +1402,19 @@ Module TuringBasics (Tur : Turing).
     Proof.
       intros.
       assert (H := H i).
-      apply p_halts_call.
-      assumption.
+      destruct (exec_exists m i) as (r, He).
+      eauto using p_halts_call.
     Qed.
 
     Lemma p_halts_seq_call:
-      forall m w k b,
-      Dec (run m w) b ->
+      forall m w r k b,
+      Exec m w r ->
+      Dec r b ->
       PHalts (k b) ->
       PHalts (Seq (Call m w) k).
     Proof.
       intros.
-      apply p_halts_seq with (r:=run m w) (b:=b); auto using run_call.
+      apply p_halts_seq with (r:=r) (b:=b); auto using run_call.
     Qed.
 
     Lemma p_halts_seq_call_decider:
@@ -1443,9 +1464,10 @@ Module TuringBasics (Tur : Turing).
       unfold Decider.
       intros.
       assert (H := H i).
-      destruct H as (r, (Hr,Hneq)).
+      destruct H as (r', (Hr,Hneq)).
       apply run_build in Hr.
-      rewrite Hr.
+      assert (r' = r) by eauto using exec_fun.
+      subst.
       assumption.
     Qed.
 
@@ -1457,12 +1479,12 @@ Module TuringBasics (Tur : Turing).
       unfold PDecider, Decider.
       intros.
       assert (H := H i).
-      remember (run _ _) as r.
-      exists r.
-      split; auto.
-      symmetry in Heqr.
-      apply run_build in Heqr.
-      assumption.
+      destruct (exec_exists (Build (fun w : input => p w)) i) as (r, He).
+      assert (Hx := He).
+      apply H in He.
+      unfold PHalts.
+      apply run_build in Hx.
+      eauto.
     Qed.
 
     Lemma p_halts_seq_p_decider:
@@ -1477,11 +1499,11 @@ Module TuringBasics (Tur : Turing).
       apply decider_to_p_run with (w:=w) in H.
       destruct H as (r, (b, (Hr, Hd))).
       inversion Hr; subst; clear Hr.
-      apply p_halts_seq with (r:=run (Build p) w) (b:=b); auto.
+      apply p_halts_seq with (r:=r) (b:=b); auto.
       - apply run_build.
-        reflexivity.
-      - apply H0 with (r:=run (Build p) w).
-        + apply run_build; reflexivity.
+        assumption.
+      - apply H0 with (r:=r).
+        + apply run_build. assumption.
         + assumption.
     Qed.
 
@@ -1582,8 +1604,7 @@ Module TuringBasics (Tur : Turing).
       intros.
       rewrite p_recognizes_rw in H.
       apply run_build in H0.
-      rewrite <- H0.
-      apply recognizes_not_accept with (L:=L); auto.
+      eauto using recognizes_not_accept.
     Qed.
 
     Lemma p_recognizes_accept:
@@ -1596,8 +1617,8 @@ Module TuringBasics (Tur : Turing).
       intros.
       rewrite p_recognizes_rw in H.
       apply run_build in H0.
-      rewrite <- H0.
-      apply recognizes_accept with (L:=L); auto.
+      assert (Exec (Build p) i Accept) by eauto using recognizes_accept.
+      eauto using exec_fun.
     Qed.
 
     Definition PDecides p L := PRecognizes p L /\ PDecider p.
@@ -1678,12 +1699,7 @@ Module TuringBasics (Tur : Turing).
       intros.
       apply p_decider_to_decider in H.
       apply run_build in H0.
-      assert (H := H i).
-      rewrite H0 in H.
-      destruct r.
-      - eauto using dec_accept.
-      - eauto using dec_reject.
-      - contradiction.
+      eauto using neq_loop_to_dec.
     Qed.
 
     Lemma p_decides_reject:
@@ -1735,7 +1751,7 @@ Module TuringBasics (Tur : Turing).
       apply p_recognizes_def; intros.
       - inversion H0; subst; clear H0.
         apply recognizes_run_accept with (m:=m); auto.
-      - apply run_call_eq.
+      - apply run_call.
         apply recognizes_accept with (L:=L); auto.
     Qed.
 
@@ -1797,10 +1813,9 @@ Module TuringBasics (Tur : Turing).
     IsEmpty M <-> NeverAccept M.
   Proof.
     unfold IsEmpty, NeverAccept; split; intros.
-    - intros N.
-      apply H in N.
-      unfold Empty in *.
-      assumption.
+    - intros N; subst.
+      apply H in H0.
+      contradiction.
     - unfold Recognizes.
       split; intros. {
         apply H in H0.
@@ -1857,8 +1872,8 @@ Module TuringBasics (Tur : Turing).
     match goal with
     | [ H: ?x = ?x |- _] => clear H
     | [ H: Lang (Build _) _ |- _ ] => apply run_build in H
-    | H: run (Build _) _ = _ |- _ => apply run_build in H
-    | [ H: _ |- run (Build _) _ = _ ] => apply run_build
+    | H: Run (Build _) _ _ |- _ => apply run_build in H
+    | [ H: _ |- Run (Build _) _ _ ] => apply run_build
     | [ H: Run (halt_with _) _ |- _ ] => apply run_halt_with_to_dec in H
     | [ H: negb _ = true |- _ ] => apply negb_true_iff in H
     | [ H: andb _ _ = true |- _] => apply andb_prop in H
@@ -1884,6 +1899,4 @@ Module TuringBasics (Tur : Turing).
   (** Simplify everything *)
 
   Ltac run_simpl_all := repeat run_simpl.
-(*
-End TuringBasics.
-*)
+
