@@ -1870,10 +1870,19 @@ Require Import Coq.Logic.Classical_Prop.
 
   Ltac run_simpl_norm :=
     match goal with
+    | [ H: Loop = Accept |- _ ] => inversion H
+    | [ H: Loop = Reject |- _ ] => inversion H
+    | [ H: Accept = Loop |- _ ] => inversion H
+    | [ H: Accept = Reject |- _ ]  => inversion H
+    | [ H: Reject = Loop |- _ ] => inversion H
+    | [ H: Reject = Accept |- _ ] => inversion H
     | [ H: ?x = ?x |- _] => clear H
     | [ H: Lang (Build _) _ |- _ ] => apply run_build in H
-    | H: Run (Build _) _ _ |- _ => apply run_build in H
-    | [ H: _ |- Run (Build _) _ _ ] => apply run_build
+    | [ H1: Exec ?m ?i ?r1, H2: Exec ?m ?i ?r2  |- _] =>
+      assert (r1 = r2) by eauto using exec_fun;
+      subst; clear H1
+    | H: Exec (Build _) _ _ |- _ => apply run_build in H
+    | [ H: _ |- Exec (Build _) _ _ ] => apply run_build
     | [ H: Run (halt_with _) _ |- _ ] => apply run_halt_with_to_dec in H
     | [ H: negb _ = true |- _ ] => apply negb_true_iff in H
     | [ H: andb _ _ = true |- _] => apply andb_prop in H

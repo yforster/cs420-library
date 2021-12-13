@@ -7,23 +7,16 @@ Require Import Coq.Setoids.Setoid.
 Require Import Turing.Turing.
 Require Import Turing.LangDec.
 
-(*
-Module Reducibility (T: Turing.Turing).
-  Import T.
-  Module D := LangDec.Decidability T.
-  Import D.
-  Import D.B.
-*)
   Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
 
   Definition HALT_tm : lang := fun p =>
     let (M, w) := decode_machine_input p in
-    run M w <> Loop.
+    ~ Exec M w Loop.
 
   Local Definition HALT_tm_to_A_tm D : lang :=
     (fun p =>
       let (M, w) := decode_machine_input p in
-      run D p = Accept /\ run M w = Accept
+      Exec D p Accept /\ Exec M w Accept
     ).
 
   Local Definition halt_mach D :=
@@ -53,14 +46,14 @@ Module Reducibility (T: Turing.Turing).
       unfold halt_mach.
       run_simpl_all.
       rewrite Heq.
-      apply run_seq_accept; auto using run_call_eq.
+      apply run_seq_accept; auto using run_call.
   Qed.
 
-  Local Lemma halt_mach_loop:
+  Lemma halt_mach_loop:
     forall D p,
-    run (halt_mach D) p = Loop ->
+    Exec (halt_mach D) p Loop ->
     let (M, w) := decode_machine_input p in
-    (run D p = Accept /\ run M w = Loop) \/ run D p = Loop.
+    (Exec D p Accept /\ Exec M w Loop) \/ Exec D p Loop.
   Proof.
     intros.
     apply run_build in H.
@@ -94,20 +87,21 @@ Module Reducibility (T: Turing.Turing).
         apply decides_accept with (L:=HALT_tm); auto.
         unfold HALT_tm.
         rewrite Heq.
-        rewrite H0.
-        intros N; inversion N.
+        intros N.
+        run_simpl_all.
       + unfold Decider.
         intros.
-        intros N.
-        apply halt_mach_loop in N.
+        intros N; subst.
+        apply halt_mach_loop in H0.
         destruct (decode_machine_input i) as (M,w) eqn:Heqp.
-        destruct N as [(Hx,Hy)|N].
-        - apply H in Hx.
+        intuition.
+        - assert (Hx: HALT_tm i). {
+            eapply decides_run_accept; eauto.
+          }
           unfold HALT_tm in Hx.
-          rewrite Heqp in Hx.
+          rewrite Heqp in *.
           contradiction.
-        - apply H in N.
-          assumption.
+        - eapply decides_no_loop in H1; eauto.
     }
     apply a_tm_undecidable in Hx.
     assumption.
@@ -130,7 +124,7 @@ Module Reducibility (T: Turing.Turing).
       ) else REJECT
     ).
   Local Definition E_tm_M1_lang M w : lang := fun x =>
-    x = w /\ run M w = Accept.
+    x = w /\ Exec M w Accept.
 
   Local Lemma E_tm_M1_spec:
     forall M w,
@@ -148,7 +142,7 @@ Module Reducibility (T: Turing.Turing).
       subst.
       apply run_build.
       destruct (input_eq_dec w w). {
-        auto using run_call_eq.
+        auto using run_call.
       }
       contradiction.
   Qed.
@@ -157,22 +151,22 @@ Module Reducibility (T: Turing.Turing).
     The only string the machine can now accept is w, so its
     language will be nonempty iff it accepts w.
   *)
-  Local Definition E_tm_A_tm D :=
+  Definition E_tm_A_tm D :=
     Build (fun p =>
       let (M, w) := decode_machine_input p in
       mlet b <- Call D [[ E_tm_M1 M w ]] in
       halt_with (negb b)
     ).
 
-  Local Definition E_tm_A_tm_spec :=
+  Definition E_tm_A_tm_spec :=
     fun p =>
       let (M, w) := decode_machine_input p in
       ~ IsEmpty (E_tm_M1 M w).
 
-  Local Lemma e_tm_reject_inv:
+  Lemma e_tm_reject_inv:
     forall D M,
     Decides D E_tm ->
-    run D [[ M ]] = Reject ->
+    Exec D [[ M ]] Reject ->
      ~ IsEmpty M.
   Proof.
     intros.
@@ -182,7 +176,7 @@ Module Reducibility (T: Turing.Turing).
     assumption.
   Qed.
 
-  Local Lemma E_tm_A_tm_recognizes:
+  Lemma E_tm_A_tm_recognizes:
     forall D,
     Decides D E_tm ->
     Recognizes (E_tm_A_tm D) E_tm_A_tm_spec.
@@ -195,11 +189,11 @@ Module Reducibility (T: Turing.Turing).
       intros N.
       inversion H0; subst; clear H0.
       run_simpl_all.
-      apply e_tm_reject_inv in H1; auto.
+      apply e_tm_reject_inv in H6; auto.
     - run_simpl.
       destruct (decode_machine_input _) as (M, w).
       apply run_seq_reject.
-      + apply run_call_eq.
+      + apply run_call.
         apply decides_reject with (L:=E_tm); auto.
         unfold E_tm.
         rewrite decode_encode_machine_rw.
@@ -207,16 +201,16 @@ Module Reducibility (T: Turing.Turing).
       + apply run_ret.
   Qed.
 
-  Local Lemma not_accept_to_empty:
+  Lemma not_accept_to_empty:
     forall M w,
-    run M w <> Accept ->
+    ~ Exec M w Accept ->
     IsEmpty (E_tm_M1 M w).
   Proof.
     intros.
     rewrite is_empty_never_accept_rw.
     unfold NeverAccept.
-    intros x.
-    intros N.
+    intros x r He ?.
+    subst.
     unfold E_tm_M1 in *.
     run_simpl.
     destruct (input_eq_dec x w). {
@@ -227,30 +221,27 @@ Module Reducibility (T: Turing.Turing).
     run_simpl.
   Qed.
 
-  Local Lemma not_empty_to_accept:
+  Lemma not_empty_to_accept:
     forall M w,
     ~ IsEmpty (E_tm_M1 M w) ->
-    run M w = Accept.
+    Exec M w Accept.
   Proof.
     intros.
-    remember (run M w) as r.
-    symmetry in Heqr.
+    destruct (exec_exists M w) as (r, Heqr).
     destruct r; auto.
     - contradict H.
       apply not_accept_to_empty.
       intros N.
-      rewrite N in *.
-      inversion Heqr.
+      run_simpl_all.
     - contradict H.
       apply not_accept_to_empty.
       intros N.
-      rewrite N in *.
-      inversion Heqr.
+      run_simpl_all.
   Qed.
 
-  Local Lemma accept_to_not_empty:
+  Lemma accept_to_not_empty:
     forall M w,
-    run M w = Accept ->
+    Exec M w Accept ->
     ~ IsEmpty (E_tm_M1 M w).
   Proof.
     intros.
@@ -258,15 +249,14 @@ Module Reducibility (T: Turing.Turing).
     unfold E_tm_M1 in *.
     rewrite is_empty_never_accept_rw in *.
     unfold NeverAccept in *.
-    assert (N := N w).
-    contradict N.
+    apply (N w Accept); auto.
     run_simpl.
     destruct (input_eq_dec w w).
-    - auto using run_call_eq.
+    - auto using run_call.
     - contradiction.
   Qed.
 
-  Local Lemma e_tm_a_tm_spec:
+  Lemma e_tm_a_tm_spec:
     forall D,
     Decides D E_tm ->
     Recognizes (E_tm_A_tm D) A_tm.
@@ -280,21 +270,21 @@ Module Reducibility (T: Turing.Turing).
     - auto using accept_to_not_empty.
   Qed.
 
-  Local Lemma decider_E_tm_A_tm:
+  Lemma decider_E_tm_A_tm:
     forall D,
     Decider D ->
     Decider (E_tm_A_tm D).
   Proof.
     unfold Decider, E_tm_A_tm.
     intros.
-    intros N.
+    intros N; subst.
     run_simpl.
     destruct (decode_machine_input _) as (M, w).
-    inversion N; subst; clear N.
-    - destruct b; inversion H5.
+    inversion H0; subst; clear H0.
+    - destruct b; inversion H6.
     - run_simpl.
       apply H in H4.
-      assumption.
+      contradiction.
   Qed.
 
   Theorem E_tm_undecidable:
@@ -470,17 +460,16 @@ End E_TM. (* --------------------------------------------------------------- *)
           assumption.
         }
         apply run_build.
-        apply run_call_eq.
+        apply run_call.
         apply Hr.
         apply Hred.
         assumption.
       - unfold Decider in *.
         intros.
-        intros N.
-        apply run_build in N.
+        intros N; subst.
         run_simpl_all.
-        apply Hd in H.
-        assumption.
+        apply Hd in H3.
+        contradiction.
     Qed.
 
     Theorem reducible_recognizable: (*------------ Theorem 5.28 ------------- *)
@@ -502,7 +491,7 @@ End E_TM. (* --------------------------------------------------------------- *)
         assumption.
       }
       apply run_build.
-      apply run_call_eq.
+      apply run_call.
       apply Hr in H.
       apply Ha.
       assumption.
@@ -557,23 +546,19 @@ End E_TM. (* --------------------------------------------------------------- *)
       - unfold A_tm, compl, Equiv, Lang in *.
         destruct (decode_machine_input w) as (M, x) eqn:Heq.
         run_simpl_all.
-        destruct (run M x) eqn:Hr.
+        destruct (exec_exists M x) as ([], Hr).
         + contradiction.
         + split; intros; run_simpl_all.
-          rewrite Hr in *.
-          run_simpl.
         + split; intros; run_simpl_all.
-          rewrite Hr in *.
-          run_simpl.
       - destruct (decode_machine_input w) as (M, x) eqn:Heq.
         run_simpl_all.
         intros N.
         unfold Equiv in *.
-        assert (Hm: run (Build (fun _ => Call M x)) w = Accept). {
+        assert (Hm: Exec (Build (fun _ => Call M x)) w Accept). {
           unfold A_tm in *.
           rewrite Heq in *.
           run_simpl.
-          apply run_call_eq.
+          apply run_call.
           assumption.
         }
         clear N.
@@ -596,7 +581,7 @@ End E_TM. (* --------------------------------------------------------------- *)
       - destruct (decode_machine_input w) as (M, x) eqn:Heq.
         run_simpl_all.
         unfold Equiv, Lang; split; intros; run_simpl_all.
-        + apply run_call_eq.
+        + apply run_call.
           unfold A_tm in *.
           rewrite Heq in *.
           assumption.
@@ -605,13 +590,13 @@ End E_TM. (* --------------------------------------------------------------- *)
         destruct (decode_machine_input w) as (M, x) eqn:Heq.
         run_simpl_all.
         unfold Equiv, Lang in *.
-        assert (Ha: run (Build (fun _ => ACCEPT)) w = Accept). {
+        assert (Ha: Exec (Build (fun _ => ACCEPT)) w Accept). {
           run_simpl.
           apply run_ret.
         }
         apply H in Ha.
         run_simpl_all.
-        reflexivity.
+        assumption.
     Qed.
 
     Theorem eq_tm_not_recognizable:
@@ -642,6 +627,3 @@ End E_TM. (* --------------------------------------------------------------- *)
     Qed.
 
   End EQ_TM.
-(*
-End Reducibility.
-*)
