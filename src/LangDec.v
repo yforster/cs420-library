@@ -1,29 +1,27 @@
 Require Import Turing.
 Require Import Coq.Bool.Bool.
-(*
-Module Decidability (Tur: Turing).
-  Import Tur.
-  Module B := TuringBasics Tur.
-  Import B.
-*)
-  Section Defs.
+
+Section Defs.
   Definition A_tm : lang := fun p =>
     let (M, w) := decode_machine_input p in
-    run M w = Accept.
+    Exec M w Accept.
 
   (** If [d] recognizes A_tm and machine d runs <M,w> *)
   Local Lemma a_tm_run_reject:
     forall d,
     Recognizes d A_tm ->
     forall w M,
-    run d (encode_machine_input M w) = Reject -> 
-    run M w <> Accept.
+    Exec d (encode_machine_input M w) Reject -> 
+    forall r,
+    Exec M w r ->
+    r <> Accept.
   Proof.
     intros.
     intros N.
     apply recognizes_run_reject with (L:=A_tm) in H0; auto.
     unfold A_tm in H0.
     rewrite decode_encode_machine_input_rw in *.
+    subst.
     contradiction.
   Qed.
 
@@ -31,11 +29,13 @@ Module Decidability (Tur: Turing).
     forall d,
     Recognizes d A_tm ->
     forall w m,
-    run d (encode_machine_input m w) = Loop -> 
-    run m w <> Accept.
+    Exec d (encode_machine_input m w) Loop -> 
+    forall r,
+    Exec m w r ->
+    r <> Accept.
   Proof.
     intros.
-    intros N.
+    intros N; subst.
     apply recognizes_run_loop with (L:=A_tm) in H0; auto.
     unfold A_tm in H0.
     rewrite decode_encode_machine_input_rw in *.
@@ -46,8 +46,8 @@ Module Decidability (Tur: Turing).
     forall d,
     Recognizes d A_tm ->
     forall w m,
-    run d (encode_machine_input m w) = Accept -> 
-    run m w = Accept.
+    Exec d (encode_machine_input m w) Accept -> 
+    Exec m w Accept.
   Proof.
     intros.
     apply recognizes_run_accept with (L:=A_tm) in H0; auto.
@@ -58,10 +58,10 @@ Module Decidability (Tur: Turing).
 
   (* -------------------------------------------------------------------------- *)
 
-  Local Definition Negator (D:machine) :=
+  Definition Negator (D:machine) :=
     fun p =>
       let M := decode_machine p in
-      neg (run D (encode_machine_input M p)) = Accept.
+      Exec D (encode_machine_input M p) Reject.
 
   (** [D] recognizes [A_tm].
       N accepts <M>, which means that D rejects <M, <M>>.
@@ -69,51 +69,82 @@ Module Decidability (Tur: Turing).
       A_tm is weaker then returning the same result.
     *)
 
-  Local Lemma run_negator_accept:
+  Lemma decider_not_reject:
+    forall m i,
+    Decider m ->
+    ~ Exec m i Reject ->
+    Exec m i Accept.
+  Proof.
+    intros.
+    edestruct decider_to_run; eauto.
+    intuition.
+  Qed.
+
+  Lemma decider_not_accept:
+    forall m i,
+    Decider m ->
+    ~ Exec m i Accept ->
+    Exec m i Reject.
+  Proof.
+    intros.
+    edestruct decider_to_run; eauto.
+    intuition.
+  Qed.
+
+  Lemma run_negator_accept:
     forall N D w,
     Recognizes D A_tm ->
     Recognizes N (Negator D) ->
-    run N w = Accept ->
-    run (decode_machine w) w <> Accept.
+    Exec N w Accept ->
+    forall r,
+    Exec (decode_machine w) w r ->
+    r <> Accept.
   Proof.
     intros.
     apply recognizes_run_accept with (L:=Negator D) in H1; auto.
-    unfold Negator in *.
-    rewrite neg_accept_rw in *.
-    apply a_tm_run_reject in H1; auto.
+    eapply a_tm_run_reject in H2; eauto.
   Qed.
 
-  Local Lemma run_negator_reject:
+  Lemma negator_no:
+    forall D w,
+    Decider D ->
+    ~ Negator D w ->
+    Exec D <[ decode_machine w, w ]> Accept.
+  Proof.
+    intros.
+    unfold Negator in H0.
+    remember (encode_machine_input (decode_machine w) w) as j.
+    (* If D does not reject, it must accept *)
+    assert (Hd: Exec D j Accept) by eauto using decider_not_reject.
+    subst.
+    assumption.
+  Qed.
+
+  Lemma run_negator_reject:
     forall N D w,
     Recognizes D A_tm ->
     Recognizes N (Negator D) ->
-    run N w = Reject ->
+    Exec N w Reject ->
     Decider D ->
-    run (decode_machine w) w = Accept.
+    Exec (decode_machine w) w Accept.
   Proof.
     intros.
     apply recognizes_run_reject with (L:=Negator D) in H1; auto.
-    unfold Negator in H1.
-    rewrite neg_accept_rw in *.
-    remember (encode_machine_input (decode_machine w) w) as j.
-    apply decider_not_reject_to_accept in H1; auto.
-    subst.
-    apply a_tm_run_accept in H1; auto.
+    assert (Ha: Exec D <[ decode_machine w, w ]> Accept) by auto using negator_no.
+    apply a_tm_run_accept in Ha; auto.
   Qed.
 
-  Local Lemma run_negator_loop:
+  Lemma run_negator_loop:
     forall N D w,
     Recognizes D A_tm ->
     Recognizes N (Negator D) ->
-    run N w = Loop ->
+    Exec N w Loop ->
     Decider D ->
-    run (decode_machine w) w = Accept.
+    Exec (decode_machine w) w Accept.
   Proof.
     intros.
     apply recognizes_run_loop with (L:=Negator D) in H1; auto.
-    unfold Negator in H1.
-    rewrite neg_accept_rw in *.
-    apply decider_not_reject_to_accept in H1; auto.
+    apply negator_no in H1; auto.
     apply a_tm_run_accept in H1; auto.
   Qed.
 
@@ -128,7 +159,7 @@ Module Decidability (Tur: Turing).
           2. Output the opposite of what D outputs. That is, if D accepts,
             reject ; and if D rejects, accept.”
   *)
-  Local Definition negator D w :=
+  Definition negator D w :=
     let M := decode_machine w in
     (* D decides A_TM, thus we are running M with <M> *)
     mlet b <- Call D <[ M , w ]> in
@@ -145,13 +176,13 @@ Module Decidability (Tur: Turing).
       run_simpl_all.
       inversion H0; subst; clear H0.
       run_simpl_all.
-      reflexivity.
+      assumption.
     }
     unfold Negator in *.
     run_simpl_all.
     unfold negator.
     apply run_seq_reject.
-    - apply run_call_eq.
+    - apply run_call.
       assumption.
     - apply run_ret.
   Qed.
@@ -170,23 +201,20 @@ Module Decidability (Tur: Turing).
     destruct is_dec as (Hrec, Hdec).
     (* What happens when we run [negator] with its own description <negator> as
       input? *)
-    remember (run N (encode_machine N)) as r.
-    symmetry in Heqr.
+    destruct (exec_exists N (encode_machine N)) as (r, He).
+    assert (Hx := He).
     (* (Let us duplicate Heqr as we will need it later.) *)
-    assert (Hx := Heqr).
-    destruct r.
-    - subst.
-      apply run_negator_accept with (D:=D) in Heqr; auto.
+    destruct r; subst.
+    - eapply run_negator_accept with (D:=D) in He; eauto.
+      rewrite decode_encode_machine_rw in *; auto.
+    - apply run_negator_reject with (D:=D) in He; eauto.
       rewrite decode_encode_machine_rw in *.
-      contradiction.
-    - apply run_negator_reject with (D:=D) in Heqr; eauto.
+      assert (N: Reject = Accept) by eauto using exec_fun.
+      inversion N.
+    - apply run_negator_loop with (D:=D) in He; eauto.
       rewrite decode_encode_machine_rw in *.
-      rewrite Hx in *.
-      inversion Heqr.
-    - apply run_negator_loop with (D:=D) in Heqr; eauto.
-      rewrite decode_encode_machine_rw in *.
-      rewrite Hx in *.
-      inversion Heqr.
+      assert (N: Loop = Accept) by eauto using exec_fun.
+      inversion N.
   Qed.
 
   (** Theorem 4.11, pp 207 *)
@@ -260,11 +288,11 @@ Module Decidability (Tur: Turing).
       run_simpl_all.
       destruct (decode_machine_input i) as (m, w).
       run_simpl.
-      reflexivity.
+      assumption.
     }
     run_simpl.
     destruct (decode_machine_input i) as (m, w).
-    apply run_call_eq.
+    apply run_call.
     assumption.
   Qed.
 
@@ -276,11 +304,24 @@ Module Decidability (Tur: Turing).
 
   (* -------------------------------------------------------------------------- *)
 
-  Local Definition Inv (m:machine) := fun i => neg (run m i) = Accept.
+  Definition Inv (m:machine) := fun i => Exec m i Reject.
 
-  Local Definition InvM (n m:machine) := forall i, neg (run m i) = run n i.
+  Definition InvM (n m:machine) := forall i r1 r2,
+    Exec m i r1 ->
+    Exec n i r2 ->
+    neg r1 = r2.
 
-  Local Lemma inv_exists:
+  Lemma neg_dec:
+    forall r1 r2 b,
+    Dec r1 b ->
+    Dec r2 (negb b) ->
+    neg r1 = r2.
+  Proof.
+    intros.
+    destruct r1, r2, b; simpl in *; inversion H; inversion H0; auto.
+  Qed.
+
+  Lemma inv_exists:
     forall m L,
     Recognizes m L ->
     exists n,
@@ -293,26 +334,19 @@ Module Decidability (Tur: Turing).
       split; intros; unfold Inv in *; run_simpl_all.
       - inversion H0; subst; clear H0.
         run_simpl_all.
-        reflexivity.
+        assumption.
       - apply run_seq_reject.
-        + apply run_call_eq.
+        + apply run_call.
           assumption.
         + apply run_ret.
     }
     unfold InvM.
     intros.
-    remember (run (Build _) i) as r.
-    symmetry in Heqr.
-    apply run_build in Heqr.
-    inversion Heqr; subst; clear Heqr;
+    run_simpl.
+    inversion H1; subst; clear H1;
     run_simpl_all.
-    - inversion H3; subst; clear H3.
-      + simpl in *; run_simpl_all.
-        reflexivity.
-      + simpl in *; run_simpl_all.
-        reflexivity.
-    - rewrite H4.
-      reflexivity.
+    - eauto using neg_dec.
+    - reflexivity.
   Qed.
 
   Local Lemma inv_compl_equiv:
@@ -322,12 +356,8 @@ Module Decidability (Tur: Turing).
   Proof.
     unfold Equiv.
     intros.
-    split; intros; unfold Inv, compl in *; simpl in *.
-    - rewrite neg_accept_rw in *.
-      apply decides_run_reject with (m:=m); auto.
-    - apply decides_reject with (m:=m) in H0; auto.
-      rewrite H0.
-      reflexivity.
+    split; intros; unfold Inv, compl in *; simpl in *;
+    eauto using decides_run_reject, decides_reject.
   Qed.
 
   Local Lemma recognizes_inv_compl:
@@ -346,7 +376,7 @@ Module Decidability (Tur: Turing).
     assumption.
   Qed.
 
-  Local Lemma decides_to_compl:
+  Lemma decides_to_compl:
     forall m L N,
     Decides m L ->
     Recognizes N (Inv m) ->
@@ -359,10 +389,16 @@ Module Decidability (Tur: Turing).
     apply decides_def.
     * assumption.
     * unfold Decider; intros.
-      intros Hn.
-      rewrite <- H1 in Hn.
-      rewrite neg_loop_rw in *.
-      apply decides_no_loop with (L:=L) in Hn; auto.
+      intros Hn; subst.
+      destruct (exec_exists m i) as (r, He).
+      unfold InvM in *.
+      assert (r = Loop). {
+        assert (Hx: neg r = Loop) by eauto.
+        destruct r; simpl in *; inversion Hx.
+        reflexivity.
+      }
+      subst.
+      apply decides_no_loop with (L:=L) in He; auto.
   Qed.
 
   Lemma decidable_to_compl:
@@ -377,13 +413,15 @@ Module Decidability (Tur: Turing).
     + apply decides_to_compl with (m:=m) (N:=N); auto.
   Qed.
 
-  Local Definition par_run (m1 m2 m3:machine) :=
+  Definition par_run (m1 m2 m3:machine) :=
     forall i,
-      match run m3 i with
-      | Accept => run m1 i = Accept
-      | Reject => run m1 i = Reject \/ run m2 i <> Loop 
-      | Loop => run m1 i = Loop /\ run m2 i = Loop
-      end.
+      (
+        Exec m3 i Accept /\ Exec m1 i Accept
+      ) \/ (
+        Exec m3 i Reject /\ (Exec m1 i Reject \/ ~ Exec m2 i Loop)
+      ) \/ (
+        Exec m3 i Loop /\ Exec m1 i Loop /\ Exec m2 i Loop
+      ).
 
   Definition par_mach M1 M2 (w: input) : Prog :=
       plet b <- Call M1 w \\ Call M2 w in
@@ -394,10 +432,10 @@ Module Decidability (Tur: Turing).
       | _ => REJECT
       end
   .
-
-  Local Lemma lang_accept_rev:
+(*
+  Lemma lang_accept_rev:
     forall m w,
-    Accept = run m w ->
+    Exec m w Accept ->
     Lang m w.
   Proof.
     intros.
@@ -405,7 +443,7 @@ Module Decidability (Tur: Turing).
     symmetry.
     assumption.
   Qed.
-
+*)
   Lemma run_par_both_eq:
     forall p1 p2 (k:par_result -> Prog) r1 r2 b1 b2 r,
     Run p1 r1 ->
@@ -435,7 +473,7 @@ Module Decidability (Tur: Turing).
 
   Lemma par_mach_lang:
     forall m1 m2,
-    (forall i, DisjointResults (run m2 i) (run m1 i)) ->
+    (forall i r1 r2, Exec m1 i r1 -> Exec m2 i r2 -> DisjointResults r1 r2) ->
     PRecognizes (par_mach m1 m2) (Lang m1).
   Proof.
     unfold par_mach.
@@ -465,10 +503,8 @@ Module Decidability (Tur: Turing).
         destruct b; run_simpl_all.
         (* Our assumption Hr is saying that m1 and m2 cannot both reject.
            Thus, we use Hr to reach a contradiction. *)
-        assert (Hr := Hr i).
-        rewrite H in *.
-        rewrite H1 in *.
-        inversion Hr.
+        assert (Hd: DisjointResults Loop Reject) by eauto.
+        inversion Hd.
       * (* Case par_r_both: both machines terminated at the same time *)
         (* since we have a match stuck on par_choice, we perform a case analysis
            on its output. *)
@@ -477,28 +513,20 @@ Module Decidability (Tur: Turing).
         destruct b; run_simpl_all; try assumption.
         inversion H5; subst; clear H5.
         - (* m1 accepts and m2 rejects *)
-          symmetry in H1.
-          (* Trivial by definition of lang *)
           assumption.
         - (* m1 rejects and m2 rejects *)
           (* Absurd, because both machines cannot reject. *)
-          assert (Hr := Hr i).
-          rewrite <- H1 in Hr.
-          rewrite H0 in *.
-          inversion Hr.
+          assert (Hd: DisjointResults Reject Reject) by eauto.
+          inversion Hd.
     + intros.
-      remember (run m2 i) as r.
-      symmetry in Heqr.
-      apply run_call_eq in H.
-      apply run_call_eq in Heqr.
+      destruct (exec_exists m2 i) as (r, He).
+      apply run_call in H.
+      apply run_call in He.
       destruct r.
-      * (* Absurd case *)
-        assert (Hr := Hr i).
-        inversion H; subst; clear H.
-        rewrite H3 in *.
-        inversion Heqr; subst; clear Heqr.
-        rewrite H in *.
-        inversion Hr.
+      * (* Absurd case: both cannot accept *)
+        run_simpl_all.
+        assert (N: DisjointResults Accept Accept) by eauto.
+        inversion N.
       * apply run_par_both_eq with (r1:=Accept) (r2:=Reject) (b1:=true) (b2:=false);
         auto using dec_accept, dec_reject, run_ret.
       * apply run_par_l_accept; auto using run_ret.
@@ -506,46 +534,66 @@ Module Decidability (Tur: Turing).
 
   Lemma par_run_spec:
     forall m1 m2,
-    (forall i, DisjointResults (run m2 i) (run m1 i)) ->
+    (forall i r1 r2, Exec m1 i r1 -> Exec m2 i r2 -> DisjointResults r1 r2) ->
     par_run m1 m2 (Build (par_mach m1 m2)).
   Proof.
     intros m1 m3 Hr.
     unfold par_run.
     unfold par_mach in *.
     intros.
-    remember (run (Build _) i) as r.
-    symmetry in Heqr.
-    apply run_build in Heqr.
-    inversion Heqr; subst; clear Heqr; run_simpl_all.
-    - destruct b; run_simpl_all; intuition.
-    - inversion H5; subst; clear H5; run_simpl_all.
+    remember (Build _) as m.
+    destruct (exec_exists m i) as (r, He).
+    destruct r.
+    - left; split; auto.
+      subst.
+      run_simpl.
+      inversion He; subst; clear He.
+      + destruct b; run_simpl_all.
+        assumption.
+      + destruct b; run_simpl_all.
+        assert (N: DisjointResults Loop Reject) by eauto.
+        inversion N.
+      + destruct (par_choice _ _ _ _) eqn:Hp;
+        apply par_choice_spec in Hp;
+        inversion Hp; subst; clear Hp;
+        destruct b; run_simpl_all; auto.
+        inversion H4; subst; clear H4; auto.
+        assert (N: DisjointResults Reject Reject) by eauto.
+        inversion N.
+    - right.
+      left. split; auto.
+      subst; run_simpl.
+      inversion He; subst; clear He;
+      try (destruct b; run_simpl_all; auto).
       + right.
-        rewrite H.
-        intros N; inversion N.
-      + (* Absurd case *)
-        assert (Hr := Hr i).
-        rewrite H in *.
-        rewrite H1 in *.
-        inversion Hr.
-    - destruct (par_choice _ _ _ _) eqn:Hp; apply par_choice_spec in Hp; inversion Hp; subst; clear Hp.
-      + inversion H4; subst; clear H4; run_simpl_all; auto.
-      + inversion H6; subst; clear H6; run_simpl_all; auto.
-        * right.
-          intros N; inversion N.
-        * inversion H4; subst; clear H4; auto.
-          assert (Hr := Hr i).
-          rewrite H0 in *.
-          rewrite <- H1 in *.
-          inversion Hr.
-      + inversion H4; subst; clear H4; run_simpl_all; auto.
-    - rewrite H.
-      rewrite H4.
-      auto.
+        intros N.
+        assert (X: Accept = Loop) by (run_simpl; auto).
+        inversion X.
+      + destruct (par_choice _ _ _ _) eqn:Hp;
+        apply par_choice_spec in Hp;
+        inversion Hp; subst; clear Hp;
+        destruct b; run_simpl_all; auto.
+        inversion H4; subst; clear H4; auto.
+        assert (N: DisjointResults Accept Accept) by eauto.
+        inversion N.
+    - right.
+      right.
+      split; auto.
+      subst; run_simpl.
+      inversion He; subst; clear He;
+      try (destruct b; run_simpl_all; auto).
+      + destruct (par_choice _ _ _ _) eqn:Hp;
+        apply par_choice_spec in Hp;
+        inversion Hp; subst; clear Hp;
+        destruct b; run_simpl_all; auto.
+      + run_simpl_all.
+        assert (N: DisjointResults Loop Loop) by eauto.
+        inversion N.
   Qed.
 
   Lemma par_run_exists:
     forall m1 m2,
-    (forall i, DisjointResults (run m2 i) (run m1 i)) ->
+    (forall i r1 r2, Exec m1 i r1 -> Exec m2 i r2 -> DisjointResults r1 r2) ->
     exists m3,
       Recognizes m3 (Lang m1) /\ par_run m1 m2 m3.
   Proof.
@@ -573,8 +621,8 @@ Module Decidability (Tur: Turing).
     Recognizes m1 L ->
     Recognizes m2 (compl L) ->
     forall i,
-    run m1 i = Reject ->
-    run m2 i = Accept.
+    Exec m1 i Reject ->
+    Exec m2 i Accept.
   Proof.
     intros.
     apply recognizes_run_reject with (L:=L) in H1; auto.
@@ -585,24 +633,21 @@ Module Decidability (Tur: Turing).
     forall m1 m2 L,
     Recognizes m1 L ->
     Recognizes m2 (compl L) ->
-    forall i, DisjointResults (run m2 i) (run m1 i).
+    (forall i r1 r2, Exec m1 i r1 -> Exec m2 i r2 -> DisjointResults r1 r2).
   Proof.
     intros.
-    remember (run m1 i).
-    symmetry in Heqr.
-    destruct r.
-    - apply H in Heqr.
-      apply co_recognizes_not_accept with (m:=m2) in Heqr; auto.
-      destruct (run m2 i); auto using disjoint_reject_accept, disjoint_loop_accept.
-      contradiction.
-    - apply recognizes_run_reject with (L:=L) in Heqr; auto.
-      apply co_recognizes_accept with (m:=m2) in Heqr; auto.
-      rewrite Heqr.
-      apply disjoint_accept_reject.
-    - apply recognizes_run_loop with (L:=L) in Heqr; auto.
-      apply co_recognizes_accept with (m:=m2) in Heqr; auto.
-      rewrite Heqr.
-      apply disjoint_accept_loop.
+    destruct r1.
+    - apply H in H1.
+      eapply co_recognizes_not_accept with (m:=m2) in H1; eauto.
+      destruct r2; try contradiction; constructor.
+    - apply recognizes_run_reject with (L:=L) in H1; auto.
+      apply co_recognizes_accept with (m:=m2) in H1; auto.
+      run_simpl.
+      constructor.
+    - apply recognizes_run_loop with (L:=L) in H1; auto.
+      apply co_recognizes_accept with (m:=m2) in H1; auto.
+      run_simpl.
+      constructor.
   Qed.
 
   Lemma recognizable_co_recognizable_to_decidable:
@@ -626,31 +671,21 @@ Module Decidability (Tur: Turing).
     + unfold Decider.
       intros.
       assert (Hp := Hp i).
-      remember (run m1 i).
-      symmetry in Heqr.
-      destruct r.
+      destruct (exec_exists m1 i) as (r', He).
+      intros N; subst.
+      destruct r'.
       - unfold Lang in *.
-        intros N.
         assert (Hr := Hr i).
-        rewrite <- Hr in Heqr.
-        rewrite N in *.
-        inversion Heqr.
-      - apply reject_recognize_to_accept_co_recognize with (m2:=m2) (L:=L) in Heqr; auto.
-        destruct (run mpar i).
-        * inversion Hp.
-        * intros N; inversion N.
-        * destruct Hp as (N, _).
-          inversion N.
+        rewrite <- Hr in He.
+        assert (N: Loop = Accept) by (run_simpl; auto).
+        inversion N.
+      - apply reject_recognize_to_accept_co_recognize with (m2:=m2) (L:=L) in He; auto.
+        intuition; run_simpl_all.
       - (* Since [m1 i] loops, then [m2 i] accepts : *)
-        apply recognizes_run_loop with (L:=L) in Heqr; auto.
-        apply co_recognizes_accept with (m:=m2) in Heqr; auto.
+        apply recognizes_run_loop with (L:=L) in He; auto.
+        apply co_recognizes_accept with (m:=m2) in He; auto.
         (* Let us simplify [m2] accepts in [Hp] *)
-        rewrite Heqr in *.
-        destruct (run mpar i).
-        * (* Goal is trivial *) intros N; inversion N.
-        * (* Goal is trivial *) intros N; inversion N.
-        * destruct Hp as (_, Hp).
-          inversion Hp. (* Contradiction *)
+        intuition; run_simpl_all.
   Qed.
 
   (** Theorem 4.22 *)
@@ -687,5 +722,4 @@ Module Decidability (Tur: Turing).
     assumption.
   Qed.
   End Defs.
-  (*
-End Decidability.*)
+
