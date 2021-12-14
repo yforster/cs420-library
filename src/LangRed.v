@@ -543,6 +543,98 @@ End E_TM. (* --------------------------------------------------------------- *)
 
   End CompFuncs.
 
+  Section A_TM.
+
+  (* ----------------------------------------------- *)
+
+  (** Show that co-A_tm is unrecognizable.
+      Proof originally by Yannick Forster. *)
+
+  (* Define the language of programs that accept their own code. *)
+
+  Definition SELF_tm := fun i =>
+    Run (decode_prog i) i Accept.
+
+  (* 1. Show that the complement of SELF is unrecognizable *)
+
+  Lemma co_self_tm_unrecognizable:
+    ~ Recognizable (compl SELF_tm).
+  Proof.
+    intros N.
+    destruct N as (p, Hr).
+    destruct (run_exists p (encode_prog p)) as (r, He).
+    assert (Hx := He).
+    destruct r.
+    - eapply recognizes_run_accept in He; eauto.
+      unfold compl, SELF_tm in *.
+      contradict He.
+      run_simpl_all.
+      assumption.
+    - eapply recognizes_run_reject in He; eauto.
+      contradict He.
+      unfold compl, SELF_tm.
+      intros N.
+      run_simpl_all.
+    - eapply recognizes_run_loop in He; eauto.
+      contradict He.
+      unfold compl, SELF_tm.
+      intros N.
+      run_simpl_all.
+  Qed.
+
+  (* 3. Show that co-A_tm map-reduces to co-SELF_tm *)
+  
+  Lemma co_A_tm_co_self_tm_rw:
+    forall i,
+    compl A_tm <[ decode_prog i, i ]> <-> compl SELF_tm i.
+  Proof.
+    unfold A_tm, SELF_tm, compl; split; intros.
+    - intros N1.
+      contradict H.
+      run_simpl.
+      assumption.
+    - intros N1.
+      contradict H.
+      run_simpl.
+      assumption.
+  Qed.
+
+  Lemma co_a_tm_red_co_self_tm:
+    compl SELF_tm <=m compl A_tm.
+  Proof.
+    intros.
+    exists (fun i => <[ decode_prog i, i ]>).
+    unfold Reduction.
+    intros.
+    rewrite co_A_tm_co_self_tm_rw.
+    reflexivity.
+  Qed.
+
+  (* 4. Show that co-A_tm is unrecognizable via map-reducibility *)
+
+  Theorem co_a_tm_unrecognizable:
+    ~ Recognizable (compl A_tm).
+  Proof.
+    apply reducible_unrecognizable with (A:=compl SELF_tm).
+    - apply co_a_tm_red_co_self_tm.
+    - apply co_self_tm_unrecognizable.
+  Qed.
+
+  (* 5. Show that A_tm is undecidable via Theorem 4.22 *)
+  Theorem a_tm_undecidable:
+    ~ Decidable A_tm.
+  Proof.
+    intros N.
+    apply dec_rec_co_rec in N.
+    destruct N as (_, N).
+    apply co_a_tm_unrecognizable; auto.
+  Qed.
+
+
+  (* -------------------------------------------------------------------------- *)
+
+  End A_TM.
+
   Section EQ_TM.
 
     (** We formally define EQ_TM: *)

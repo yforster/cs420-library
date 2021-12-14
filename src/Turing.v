@@ -438,6 +438,25 @@ Require Import Coq.Logic.Classical_Prop.
     assumption.
   Qed.
 
+
+  Lemma run_read_rw:
+    forall f i r,
+    Run (Read f) i r <-> Run (f i) i r.
+  Proof.
+    split; intros.
+    - inversion H; subst; auto.
+    - constructor; assumption.
+  Qed.
+
+  Lemma run_with_rw:
+    forall p i j r,
+    Run (With j p) i r <-> Run p j r.
+  Proof.
+    split; intros.
+    - inversion H; subst; auto.
+    - constructor; auto.
+  Qed.
+
   (*----------------------------------------------------------------------------*)
 
   Section RecognizesRun.
@@ -646,6 +665,17 @@ Require Import Coq.Logic.Classical_Prop.
       apply H in N.
       assert (Hx: Loop = Accept) by eauto using run_fun.
       inversion Hx.
+    Qed.
+
+    Lemma recognizes_accept_rw:
+      forall p L,
+      Recognizes p L ->
+      forall i,
+      Run p i Accept <-> L i.
+    Proof.
+      split; intros.
+      - eapply recognizes_run_accept; eauto.
+      - eapply recognizes_accept; eauto.
     Qed.
 
     Lemma lang_equiv:
