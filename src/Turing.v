@@ -71,7 +71,7 @@ Require Import Coq.Logic.Classical_Prop.
       Calls a machine with a given input
       (see Universal Turing Machines)
      *)
-  | Call: machine -> Prog
+  | Tur: machine -> Prog
     (**
       This Turing Machine just accepts/loops/rejects without
       any further operation.
@@ -130,7 +130,7 @@ Require Import Coq.Logic.Classical_Prop.
     (** Calling a machine is the same as using function `run`. *)
     forall m i r,
     Exec m i r ->
-    Run (Call m) i r
+    Run (Tur m) i r
   | run_seq_cont:
     (** If `p` terminates and returns `b`, then we can
        proceed with the execution of `q b`. *) 
@@ -1443,10 +1443,10 @@ Require Import Coq.Logic.Classical_Prop.
           eapply p_halts_par_r_seq in Hp; eauto using dec_accept, dec_reject.
     Qed.
 
-    Lemma p_halts_call:
+    Lemma p_halts_tur:
       forall m i,
       ~ Exec m i Loop ->
-      PHalts (Call m) i.
+      PHalts (Tur m) i.
     Proof.
       intros.
       destruct (exec_exists m i) as (r, He).
@@ -1475,7 +1475,7 @@ Require Import Coq.Logic.Classical_Prop.
       Exec m i r ->
       Dec r b ->
       PHalts (k b) i ->
-      PHalts (Seq (Call m) k) i.
+      PHalts (Seq (Tur m) k) i.
     Proof.
       intros.
       apply p_halts_seq with (r:=r) (b:=b); auto using run_call.
@@ -1752,7 +1752,7 @@ Require Import Coq.Logic.Classical_Prop.
     match type of H with
       | Run (With _ _) _ _ => idtac
       | Run (Read _) _ _ => idtac
-      | Run (Call _) _ _ => idtac
+      | Run (Tur _) _ _ => idtac
       | Run (Ret _) _ _ => idtac
       | Dec _ true => idtac
       | Dec _ false => idtac
