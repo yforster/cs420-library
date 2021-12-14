@@ -62,28 +62,6 @@ Section Defs.
       A_tm is weaker then returning the same result.
     *)
 
-  Lemma decider_not_reject:
-    forall m i,
-    Decider m ->
-    ~ Run m i Reject ->
-    Run m i Accept.
-  Proof.
-    intros.
-    edestruct decider_to_run; eauto.
-    intuition.
-  Qed.
-
-  Lemma decider_not_accept:
-    forall m i,
-    Decider m ->
-    ~ Run m i Accept ->
-    Run m i Reject.
-  Proof.
-    intros.
-    edestruct decider_to_run; eauto.
-    intuition.
-  Qed.
-
   Lemma run_negator_accept:
     forall N D w,
     Recognizes D A_tm ->
@@ -227,12 +205,6 @@ Section Defs.
 
   (* -------------------------------------------------------------------------- *)
 
-  Definition A_tm_mach : Prog :=
-    Read (fun p => 
-      let (M, w) := decode_prog_input p in
-      With w M
-    ).
-
   Lemma accept_to_a_tm:
     forall M L w,
     Recognizes M L ->
@@ -272,28 +244,25 @@ Section Defs.
     - apply accept_to_a_tm; auto.
   Qed.
 
-  Lemma a_tm_recognizes:
-    Recognizes A_tm_mach A_tm.
-  Proof.
-    intros.
-    unfold Recognizes.
-    unfold A_tm_mach, A_tm.
-    split; intros. {
-      inversion H; subst; clear H.
-      destruct (decode_prog_input i) as (m, w).
-      inversion H1; subst; clear H1.
-      assumption.
-    }
-    constructor.
-    destruct (decode_prog_input i) as (m, w).
-    constructor.
-    assumption.
-  Qed.
-
   Lemma a_tm_recognizable: Recognizable A_tm.
   Proof.
-    apply recognizable_def with (m:=A_tm_mach).
-    apply a_tm_recognizes.
+    apply recognizable_def with (m:=Read (fun p => 
+      let (M, w) := decode_prog_input p in
+      (* Set the input to be w *)
+      With w
+      (* Continue with M *)
+      M
+      )
+    ).
+    unfold Recognizes, A_tm.
+    intros.
+    (* remove the read from lhs *)
+    rewrite run_read_rw.
+    (* remove the pair *)
+    destruct (decode_prog_input i) as (p, j).
+    (* remove the with from lhs *)
+    rewrite run_with_rw.
+    reflexivity.
   Qed.
 
   (* -------------------------------------------------------------------------- *)
@@ -330,22 +299,25 @@ Section Defs.
         )
     ).
     split. {
-      unfold Recognizes.
-      split; intros; unfold Inv in *; run_simpl_all.
-      - inversion H2; subst; clear H2.
+      unfold Recognizes, Inv.
+      intros.
+      rewrite run_read_rw.
+      split; intros.
+      - inversion H0; subst; clear H0.
         run_simpl_all.
         assumption.
-      - constructor.
-        apply run_seq_reject.
+      - apply run_seq_reject.
         + assumption.
         + apply run_ret.
     }
     unfold InvM.
     intros.
+    rewrite run_read_rw in *.
     inversion H1; subst; clear H1.
-    inversion H3; subst; clear H3; run_simpl_all.
+    run_simpl_all.
     - eauto using neg_dec.
-    - reflexivity.
+    - run_simpl_all.
+      reflexivity.
   Qed.
 
   Lemma inv_compl_equiv:
@@ -353,7 +325,7 @@ Section Defs.
     Decides m L ->
     Equiv (Inv m) (compl L).
   Proof.
-    unfold Equiv.
+    unfold Equiv. 
     intros.
     split; intros; unfold Inv, compl in *; simpl in *;
     eauto using decides_run_reject, decides_reject.

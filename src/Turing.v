@@ -889,6 +889,28 @@ Require Import Coq.Logic.Classical_Prop.
         auto using dec_reject.
     Qed.
 
+    Lemma decider_not_reject:
+      forall m i,
+      Decider m ->
+      ~ Run m i Reject ->
+      Run m i Accept.
+    Proof.
+      intros.
+      edestruct decider_to_run; eauto.
+      intuition.
+    Qed.
+
+    Lemma decider_not_accept:
+      forall m i,
+      Decider m ->
+      ~ Run m i Accept ->
+      Run m i Reject.
+    Proof.
+      intros.
+      edestruct decider_to_run; eauto.
+      intuition.
+    Qed.
+
     Lemma decider_to_p_run:
       forall m,
       Decider m ->

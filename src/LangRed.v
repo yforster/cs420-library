@@ -19,7 +19,7 @@ Require Import Turing.LangDec.
       Run D p Accept /\ Run M w Accept
     ).
 
-  Definition halt_mach D :=
+  Definition HALT_tm_impl D :=
     Read (fun p =>
       let (M, w) := decode_prog_input p in
       mlet b <- D in
@@ -28,39 +28,31 @@ Require Import Turing.LangDec.
 
   Lemma halt_tm_mach_spec:
     forall D,
-    Recognizes (halt_mach D) (HALT_tm_to_A_tm D).
+    Recognizes (HALT_tm_impl D) (HALT_tm_to_A_tm D).
   Proof.
-    unfold Recognizes.
+    unfold Recognizes, HALT_tm_impl, HALT_tm_to_A_tm.
+    intros.
+    rewrite run_read_rw.
+    destruct (decode_prog_input i) as (M,w) eqn:Heq.
     split; intros.
-    - unfold HALT_tm_to_A_tm.
-      unfold halt_mach in *.
-      inversion H; subst; clear H.
-      remember (decode_prog_input i).
-      destruct p as (M, w).
-      inversion H1; subst; clear H1; run_simpl_all.
-      inversion H3; subst; clear H3; run_simpl_all.
+    - inversion H; subst; clear H.
+      destruct b; run_simpl_all.
       intuition.
-    - unfold HALT_tm_to_A_tm in *.
-      destruct (decode_prog_input i) as (M,w) eqn:Heq.
-      destruct H.
-      unfold halt_mach.
-      constructor.
-      rewrite Heq.
+    - intuition.
       apply run_seq_accept; auto.
       repeat (constructor; auto).
   Qed.
 
   Lemma halt_mach_loop:
     forall D p,
-    Run (halt_mach D) p Loop ->
+    Run (HALT_tm_impl D) p Loop ->
     let (M, w) := decode_prog_input p in
     (Run D p Accept /\ Run M w Loop) \/ Run D p Loop.
   Proof.
     intros.
+    inversion H; subst; clear H.
     remember (decode_prog_input p) as q.
     destruct q as (M, w).
-    inversion H; subst; clear H; run_simpl_all.
-    rewrite <- Heqq in H1.
     inversion H1; subst; clear H1; run_simpl_all; intuition.
     inversion H3; subst; clear H3; intuition; run_simpl_all.
     intuition.
@@ -73,7 +65,7 @@ Require Import Turing.LangDec.
     intros N.
     destruct N as (R, H).
     assert (Hx: Decidable A_tm). {
-      apply decidable_def with (m:=halt_mach R).
+      apply decidable_def with (m:=HALT_tm_impl R).
       apply decides_def.
       + apply recognizes_impl with (L1:=HALT_tm_to_A_tm R); auto using halt_tm_mach_spec.
         unfold Equiv.
@@ -121,18 +113,17 @@ Require Import Turing.LangDec.
   Definition E_tm_M1 M w :=
     Read (fun x =>
       if input_eq_dec x w then (
-        With w M
+        With w
+        M
       ) else REJECT
     ).
-  Definition E_tm_M1_lang M w : lang := fun x =>
-    x = w /\ Run M w Accept.
 
   Lemma E_tm_M1_spec:
     forall M w,
-    Recognizes (E_tm_M1 M w) (E_tm_M1_lang M w).
+    Recognizes (E_tm_M1 M w) (fun x => x = w /\ Run M w Accept).
   Proof.
     intros.
-    unfold E_tm_M1, E_tm_M1_lang.
+    unfold E_tm_M1.
     apply recognizes_def; intros i Ha.
     - inversion Ha; subst; clear Ha.
       destruct (input_eq_dec i w); run_simpl_all.
@@ -201,7 +192,6 @@ Require Import Turing.LangDec.
     - contradiction.
   Qed.
 
-
   Lemma E_tm_A_tm_recognizes:
     forall D,
     Decides D E_tm ->
@@ -209,15 +199,16 @@ Require Import Turing.LangDec.
   Proof.
     intros.
     unfold E_tm_A_tm_spec, E_tm_A_tm, Recognizes.
+    intros.
+    rewrite run_read_rw.
+    destruct (decode_prog_input i) as (M, w).
     split; intros.
     - inversion H0; subst; clear H0.
-      destruct (decode_prog_input i) as (M, w).
-      inversion H2; subst; clear H2.
+      rewrite run_with_rw in *.
+      inversion H4; subst; clear H4. (* Dec r1 b *)
       run_simpl_all.
-      apply e_tm_reject_inv in H5; auto.
-    - constructor.
-      destruct (decode_prog_input _) as (M, w).
-      apply run_seq_reject.
+      apply e_tm_reject_inv in H3; auto. (* Run D [[ E_tm_M1 M w ]] Reject *)
+    - apply run_seq_reject.
       + constructor.
         apply e_tm_reject; auto.
       + apply run_ret.
