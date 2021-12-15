@@ -489,18 +489,19 @@ Section A_TM. (* ----------------------------------------------- *)
   
     Proof.
 
-    Assume by contradiction that some program p recognizes [[p]].
-    Case analysis on the result of running the p on [[p]].
+    Assume by contradiction that some program p recognizes itself.
+    Case analysis on the result of running the p on itself.
     
-    1. ACCEPTS: its encoding as input, thus [[p]] is in co-SELF.
-       If [[p]] is in co-SELF, then by definition of co-SELF, then p cannot
-       accept [[p]].
+    1. ACCEPTS itself. (Recognizability) Since p recognizes co-SELF and
+       p accepts itself, then p is in co-SELF.
+       (Def of co-SELF) If p is in co-SELF and p recognizes co-SELF,
+       then p must reject itself.
 
-    2. REJECTS/LOOPS: its encoding as input. Since p recognizes co-SELF and
-       p rejects/loops [[p]], then [[p]] is not in co-SELF.
+    2. REJECTS/LOOPS itself. (Recognizability) Since p recognizes co-SELF and
+       p rejects/loops itself, then p is not in co-SELF.
 
-       However, can also show that [[p]] IS in co-SELF:
-       as we only need to show that p does not accept [[p]]
+       (Def of co-SELF) However, can also show that p IS in co-SELF:
+       as we only need to show that p does not accept itself
        (which is given already). 
    *)
 
