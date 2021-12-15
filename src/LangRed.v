@@ -225,315 +225,6 @@ Require Import Turing.LangDec.
 
   End CompFuncs.
 
-Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
-
-  Definition HALT_tm : lang := fun p =>
-    let (M, w) := decode_prog_input p in
-    ~ Run M w Loop.
-
-  Definition HALT_tm_to_A_tm D : lang :=
-    (fun p =>
-      let (M, w) := decode_prog_input p in
-      Run D p Accept /\ Run M w Accept
-    ).
-
-  Definition HALT_tm_impl D :=
-    Read (fun p =>
-      let (M, w) := decode_prog_input p in
-      mlet b <- D in
-      if b then With w M else REJECT 
-    ).
-
-  Lemma halt_tm_mach_spec:
-    forall D,
-    Recognizes (HALT_tm_impl D) (HALT_tm_to_A_tm D).
-  Proof.
-    unfold Recognizes, HALT_tm_impl, HALT_tm_to_A_tm.
-    intros.
-    rewrite run_read_rw.
-    destruct (decode_prog_input i) as (M,w) eqn:Heq.
-    split; intros.
-    - inversion H; subst; clear H.
-      destruct b; run_simpl_all.
-      intuition.
-    - intuition.
-      apply run_seq_accept; auto.
-      repeat (constructor; auto).
-  Qed.
-
-  Lemma halt_mach_loop:
-    forall D p,
-    Run (HALT_tm_impl D) p Loop ->
-    let (M, w) := decode_prog_input p in
-    (Run D p Accept /\ Run M w Loop) \/ Run D p Loop.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    remember (decode_prog_input p) as q.
-    destruct q as (M, w).
-    inversion H1; subst; clear H1; run_simpl_all; intuition.
-    inversion H3; subst; clear H3; intuition; run_simpl_all.
-    intuition.
-  Qed.
-
-  (** Theorem 5.1 *)
-  Theorem HALT_tm_undecidable:
-    ~ Decidable HALT_tm.
-  Proof.
-    intros N.
-    destruct N as (R, H).
-    assert (Hx: Decidable A_tm). {
-      apply decidable_def with (m:=HALT_tm_impl R).
-      apply decides_def.
-      + apply recognizes_impl with (L1:=HALT_tm_to_A_tm R); auto using halt_tm_mach_spec.
-        unfold Equiv.
-        intros.
-        split; unfold HALT_tm_to_A_tm, A_tm; intros. {
-          destruct (decode_prog_input i).
-          intuition.
-        }
-        rename i into p.
-        destruct (decode_prog_input p) as (M, w) eqn:Heq.
-        split; auto.
-        apply decides_accept with (L:=HALT_tm); auto.
-        unfold HALT_tm.
-        rewrite Heq.
-        intros N.
-        run_simpl_all.
-      + unfold Decider.
-        intros.
-        intros N.
-        apply halt_mach_loop in N.
-        destruct (decode_prog_input i) as (M,w) eqn:Heqp.
-        intuition.
-        - assert (Hx: HALT_tm i). {
-            eapply decides_run_accept; eauto.
-          }
-          unfold HALT_tm in Hx.
-          rewrite Heqp in *.
-          contradiction.
-        - eapply decides_no_loop in H0; eauto.
-    }
-    apply a_tm_undecidable in Hx.
-    assumption.
-  Qed.
-
-End HALT_TM. (* ------------------------------------------------------------ *)
-
-Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
-
-  Definition E_tm : lang := fun p =>
-    let M := decode_prog p in
-    forall i, ~ Run M i Accept.
-
-  (* We modify M to guarantee that M rejects all strings except w, but on input
-     w it works as usual. *)
-  Definition E_tm_M1 M w :=
-    Read (fun x =>
-      if input_eq_dec x w then (
-        With w
-        M
-      ) else REJECT
-    ).
-
-  Lemma E_tm_M1_spec:
-    forall M w,
-    Recognizes (E_tm_M1 M w) (fun x => x = w /\ Run M w Accept).
-  Proof.
-    intros.
-    unfold E_tm_M1.
-    apply recognizes_def; intros i Ha.
-    - inversion Ha; subst; clear Ha.
-      destruct (input_eq_dec i w); run_simpl_all.
-      intuition.
-    - destruct Ha.
-      subst.
-      constructor.
-      destruct (input_eq_dec w w). {
-        repeat constructor; auto.
-      }
-      contradiction.
-  Qed.
-
-  (*
-    The only string the machine can now accept is w, so its
-    language will be nonempty iff it accepts w.
-  *)
-  Definition E_tm_A_tm (D:Prog) :=
-    Read (fun p =>
-      let (M, w) := decode_prog_input p in
-      mlet b <- With [[ E_tm_M1 M w ]] D in
-      halt_with (negb b)
-    ).
-
-  Definition E_tm_A_tm_spec : lang :=
-    fun p =>
-      let (M, w) := decode_prog_input p in
-      ~ IsEmpty (E_tm_M1 M w).
-
-  Lemma e_tm_reject_inv:
-    forall D M,
-    Decides D E_tm ->
-    Run D [[ M ]] Reject ->
-    ~ IsEmpty M.
-  Proof.
-    intros.
-    apply decides_run_reject with (L:=E_tm) in H0; auto.
-    intros N.
-    unfold E_tm in *.
-    rewrite decode_encode_prog_rw in *.
-    unfold IsEmpty in *.
-    contradict H0.
-    intros.
-    intros N1.
-    assert (Hc: Run M i Accept) by auto using run_call.
-    eapply recognizes_run_accept in Hc; eauto.
-    contradiction.
-  Qed.
-
-  Lemma e_tm_reject:
-    forall D M,
-    Decides D E_tm ->
-    ~ IsEmpty M ->
-    Run D [[ M ]] Reject.
-  Proof.
-    intros.
-    eapply run_call_decides_reject; eauto.
-    intros N.
-    unfold E_tm in N.
-    contradict H0.
-    unfold IsEmpty.
-    split; intros.
-    - assert (N := N i).
-      run_simpl.
-      contradiction.
-    - contradiction.
-  Qed.
-
-  Lemma E_tm_A_tm_recognizes:
-    forall D,
-    Decides D E_tm ->
-    Recognizes (E_tm_A_tm D) E_tm_A_tm_spec.
-  Proof.
-    intros.
-    unfold E_tm_A_tm_spec, E_tm_A_tm, Recognizes.
-    intros.
-    rewrite run_read_rw.
-    destruct (decode_prog_input i) as (M, w).
-    split; intros.
-    - inversion H0; subst; clear H0.
-      rewrite run_with_rw in *.
-      inversion H4; subst; clear H4. (* Dec r1 b *)
-      run_simpl_all.
-      apply e_tm_reject_inv in H3; auto. (* Run D [[ E_tm_M1 M w ]] Reject *)
-    - apply run_seq_reject.
-      + constructor.
-        apply e_tm_reject; auto.
-      + apply run_ret.
-  Qed.
-
-  Lemma not_accept_to_empty:
-    forall M w,
-    ~ Run M w Accept ->
-    IsEmpty (E_tm_M1 M w).
-  Proof.
-    intros.
-    rewrite is_empty_never_accept_rw.
-    unfold NeverAccept.
-    intros i N.
-    unfold E_tm_M1 in *.
-    run_simpl.
-    destruct (input_eq_dec i w). {
-      subst.
-      run_simpl.
-      contradiction.
-    }
-    run_simpl.
-  Qed.
-
-  Lemma not_empty_to_accept:
-    forall M w,
-    ~ IsEmpty (E_tm_M1 M w) ->
-    Run M w Accept.
-  Proof.
-    intros.
-    destruct (run_exists M w) as (r, Heqr).
-    destruct r; auto.
-    - contradict H.
-      apply not_accept_to_empty.
-      intros N.
-      run_simpl_all.
-    - contradict H.
-      apply not_accept_to_empty.
-      intros N.
-      run_simpl_all.
-  Qed.
-
-  Lemma accept_to_not_empty:
-    forall M w,
-    Run M w Accept ->
-    ~ IsEmpty (E_tm_M1 M w).
-  Proof.
-    intros.
-    intros N.
-    unfold E_tm_M1 in *.
-    rewrite is_empty_never_accept_rw in *.
-    unfold NeverAccept in *.
-    apply (N w); auto.
-    constructor.
-    destruct (input_eq_dec w w).
-    - constructor.
-      assumption.
-    - contradiction.
-  Qed.
-
-  Lemma e_tm_a_tm_spec:
-    forall D,
-    Decides D E_tm ->
-    Recognizes (E_tm_A_tm D) A_tm.
-  Proof.
-    intros.
-    apply recognizes_impl with (L1:=E_tm_A_tm_spec); auto using E_tm_A_tm_recognizes.
-    unfold Equiv, E_tm_A_tm_spec, A_tm; split; intros;
-    destruct (decode_prog_input i) as (M, w).
-    - unfold E_tm in *.
-      auto using not_empty_to_accept.
-    - auto using accept_to_not_empty.
-  Qed.
-
-  Lemma decider_E_tm_A_tm:
-    forall D,
-    Decider D ->
-    Decider (E_tm_A_tm D).
-  Proof.
-    unfold Decider, E_tm_A_tm.
-    intros.
-    intros N; subst.
-    run_simpl.
-    destruct (decode_prog_input _) as (M, w).
-    inversion H1; subst; clear H1; run_simpl_all.
-    apply H in H5.
-    contradiction.
-  Qed.
-
-  Theorem E_tm_undecidable:
-    ~ Decidable E_tm.
-  Proof.
-    intros HD.
-    destruct HD as (R, H).
-    assert (Hx: Decidable A_tm). {
-      apply decidable_def with (m:=E_tm_A_tm R).
-      apply decides_def.
-      + auto using e_tm_a_tm_spec.
-      + destruct H.
-        auto using decider_E_tm_A_tm.
-    }
-    apply a_tm_undecidable in Hx.
-    assumption.
-  Qed.
-
-End E_TM. (* --------------------------------------------------------------- *)
-
 Section A_TM. (* ----------------------------------------------- *)
 
   (* -------------------------------------------------------------------------- *)
@@ -910,7 +601,317 @@ Section A_TM. (* ----------------------------------------------- *)
 
   End A_TM.
 
-  Section EQ_TM.
+
+Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
+
+  Definition HALT_tm : lang := fun p =>
+    let (M, w) := decode_prog_input p in
+    ~ Run M w Loop.
+
+  Definition HALT_tm_to_A_tm D : lang :=
+    (fun p =>
+      let (M, w) := decode_prog_input p in
+      Run D p Accept /\ Run M w Accept
+    ).
+
+  Definition HALT_tm_impl D :=
+    Read (fun p =>
+      let (M, w) := decode_prog_input p in
+      mlet b <- D in
+      if b then With w M else REJECT 
+    ).
+
+  Lemma halt_tm_mach_spec:
+    forall D,
+    Recognizes (HALT_tm_impl D) (HALT_tm_to_A_tm D).
+  Proof.
+    unfold Recognizes, HALT_tm_impl, HALT_tm_to_A_tm.
+    intros.
+    rewrite run_read_rw.
+    destruct (decode_prog_input i) as (M,w) eqn:Heq.
+    split; intros.
+    - inversion H; subst; clear H.
+      destruct b; run_simpl_all.
+      intuition.
+    - intuition.
+      apply run_seq_accept; auto.
+      repeat (constructor; auto).
+  Qed.
+
+  Lemma halt_mach_loop:
+    forall D p,
+    Run (HALT_tm_impl D) p Loop ->
+    let (M, w) := decode_prog_input p in
+    (Run D p Accept /\ Run M w Loop) \/ Run D p Loop.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    remember (decode_prog_input p) as q.
+    destruct q as (M, w).
+    inversion H1; subst; clear H1; run_simpl_all; intuition.
+    inversion H3; subst; clear H3; intuition; run_simpl_all.
+    intuition.
+  Qed.
+
+  (** Theorem 5.1 *)
+  Theorem HALT_tm_undecidable:
+    ~ Decidable HALT_tm.
+  Proof.
+    intros N.
+    destruct N as (R, H).
+    assert (Hx: Decidable A_tm). {
+      apply decidable_def with (m:=HALT_tm_impl R).
+      apply decides_def.
+      + apply recognizes_impl with (L1:=HALT_tm_to_A_tm R); auto using halt_tm_mach_spec.
+        unfold Equiv.
+        intros.
+        split; unfold HALT_tm_to_A_tm, A_tm; intros. {
+          destruct (decode_prog_input i).
+          intuition.
+        }
+        rename i into p.
+        destruct (decode_prog_input p) as (M, w) eqn:Heq.
+        split; auto.
+        apply decides_accept with (L:=HALT_tm); auto.
+        unfold HALT_tm.
+        rewrite Heq.
+        intros N.
+        run_simpl_all.
+      + unfold Decider.
+        intros.
+        intros N.
+        apply halt_mach_loop in N.
+        destruct (decode_prog_input i) as (M,w) eqn:Heqp.
+        intuition.
+        - assert (Hx: HALT_tm i). {
+            eapply decides_run_accept; eauto.
+          }
+          unfold HALT_tm in Hx.
+          rewrite Heqp in *.
+          contradiction.
+        - eapply decides_no_loop in H0; eauto.
+    }
+    apply a_tm_undecidable in Hx.
+    assumption.
+  Qed.
+
+End HALT_TM. (* ------------------------------------------------------------ *)
+
+Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
+
+  Definition E_tm : lang := fun p =>
+    let M := decode_prog p in
+    forall i, ~ Run M i Accept.
+
+  (* We modify M to guarantee that M rejects all strings except w, but on input
+     w it works as usual. *)
+  Definition E_tm_M1 M w :=
+    Read (fun x =>
+      if input_eq_dec x w then (
+        With w
+        M
+      ) else REJECT
+    ).
+
+  Lemma E_tm_M1_spec:
+    forall M w,
+    Recognizes (E_tm_M1 M w) (fun x => x = w /\ Run M w Accept).
+  Proof.
+    intros.
+    unfold E_tm_M1.
+    apply recognizes_def; intros i Ha.
+    - inversion Ha; subst; clear Ha.
+      destruct (input_eq_dec i w); run_simpl_all.
+      intuition.
+    - destruct Ha.
+      subst.
+      constructor.
+      destruct (input_eq_dec w w). {
+        repeat constructor; auto.
+      }
+      contradiction.
+  Qed.
+
+  (*
+    The only string the machine can now accept is w, so its
+    language will be nonempty iff it accepts w.
+  *)
+  Definition E_tm_A_tm (D:Prog) :=
+    Read (fun p =>
+      let (M, w) := decode_prog_input p in
+      mlet b <- With [[ E_tm_M1 M w ]] D in
+      halt_with (negb b)
+    ).
+
+  Definition E_tm_A_tm_spec : lang :=
+    fun p =>
+      let (M, w) := decode_prog_input p in
+      ~ IsEmpty (E_tm_M1 M w).
+
+  Lemma e_tm_reject_inv:
+    forall D M,
+    Decides D E_tm ->
+    Run D [[ M ]] Reject ->
+    ~ IsEmpty M.
+  Proof.
+    intros.
+    apply decides_run_reject with (L:=E_tm) in H0; auto.
+    intros N.
+    unfold E_tm in *.
+    rewrite decode_encode_prog_rw in *.
+    unfold IsEmpty in *.
+    contradict H0.
+    intros.
+    intros N1.
+    assert (Hc: Run M i Accept) by auto using run_call.
+    eapply recognizes_run_accept in Hc; eauto.
+    contradiction.
+  Qed.
+
+  Lemma e_tm_reject:
+    forall D M,
+    Decides D E_tm ->
+    ~ IsEmpty M ->
+    Run D [[ M ]] Reject.
+  Proof.
+    intros.
+    eapply run_call_decides_reject; eauto.
+    intros N.
+    unfold E_tm in N.
+    contradict H0.
+    unfold IsEmpty.
+    split; intros.
+    - assert (N := N i).
+      run_simpl.
+      contradiction.
+    - contradiction.
+  Qed.
+
+  Lemma E_tm_A_tm_recognizes:
+    forall D,
+    Decides D E_tm ->
+    Recognizes (E_tm_A_tm D) E_tm_A_tm_spec.
+  Proof.
+    intros.
+    unfold E_tm_A_tm_spec, E_tm_A_tm, Recognizes.
+    intros.
+    rewrite run_read_rw.
+    destruct (decode_prog_input i) as (M, w).
+    split; intros.
+    - inversion H0; subst; clear H0.
+      rewrite run_with_rw in *.
+      inversion H4; subst; clear H4. (* Dec r1 b *)
+      run_simpl_all.
+      apply e_tm_reject_inv in H3; auto. (* Run D [[ E_tm_M1 M w ]] Reject *)
+    - apply run_seq_reject.
+      + constructor.
+        apply e_tm_reject; auto.
+      + apply run_ret.
+  Qed.
+
+  Lemma not_accept_to_empty:
+    forall M w,
+    ~ Run M w Accept ->
+    IsEmpty (E_tm_M1 M w).
+  Proof.
+    intros.
+    rewrite is_empty_never_accept_rw.
+    unfold NeverAccept.
+    intros i N.
+    unfold E_tm_M1 in *.
+    run_simpl.
+    destruct (input_eq_dec i w). {
+      subst.
+      run_simpl.
+      contradiction.
+    }
+    run_simpl.
+  Qed.
+
+  Lemma not_empty_to_accept:
+    forall M w,
+    ~ IsEmpty (E_tm_M1 M w) ->
+    Run M w Accept.
+  Proof.
+    intros.
+    destruct (run_exists M w) as (r, Heqr).
+    destruct r; auto.
+    - contradict H.
+      apply not_accept_to_empty.
+      intros N.
+      run_simpl_all.
+    - contradict H.
+      apply not_accept_to_empty.
+      intros N.
+      run_simpl_all.
+  Qed.
+
+  Lemma accept_to_not_empty:
+    forall M w,
+    Run M w Accept ->
+    ~ IsEmpty (E_tm_M1 M w).
+  Proof.
+    intros.
+    intros N.
+    unfold E_tm_M1 in *.
+    rewrite is_empty_never_accept_rw in *.
+    unfold NeverAccept in *.
+    apply (N w); auto.
+    constructor.
+    destruct (input_eq_dec w w).
+    - constructor.
+      assumption.
+    - contradiction.
+  Qed.
+
+  Lemma e_tm_a_tm_spec:
+    forall D,
+    Decides D E_tm ->
+    Recognizes (E_tm_A_tm D) A_tm.
+  Proof.
+    intros.
+    apply recognizes_impl with (L1:=E_tm_A_tm_spec); auto using E_tm_A_tm_recognizes.
+    unfold Equiv, E_tm_A_tm_spec, A_tm; split; intros;
+    destruct (decode_prog_input i) as (M, w).
+    - unfold E_tm in *.
+      auto using not_empty_to_accept.
+    - auto using accept_to_not_empty.
+  Qed.
+
+  Lemma decider_E_tm_A_tm:
+    forall D,
+    Decider D ->
+    Decider (E_tm_A_tm D).
+  Proof.
+    unfold Decider, E_tm_A_tm.
+    intros.
+    intros N; subst.
+    run_simpl.
+    destruct (decode_prog_input _) as (M, w).
+    inversion H1; subst; clear H1; run_simpl_all.
+    apply H in H5.
+    contradiction.
+  Qed.
+
+  Theorem E_tm_undecidable:
+    ~ Decidable E_tm.
+  Proof.
+    intros HD.
+    destruct HD as (R, H).
+    assert (Hx: Decidable A_tm). {
+      apply decidable_def with (m:=E_tm_A_tm R).
+      apply decides_def.
+      + auto using e_tm_a_tm_spec.
+      + destruct H.
+        auto using decider_E_tm_A_tm.
+    }
+    apply a_tm_undecidable in Hx.
+    assumption.
+  Qed.
+
+End E_TM. (* --------------------------------------------------------------- *)
+
+Section EQ_TM.
     (** Show that EQ_TM is unrecognizable and co-unrecognizable. *)
 
     (** We formally define EQ_TM: *)
@@ -983,7 +984,9 @@ Section A_TM. (* ----------------------------------------------- *)
         assumption.
     Qed.
 
-    Theorem eq_tm_not_recognizable:
+    (** Theorem 5.30: EQ_TM is neither recognizable nor co-recognizable. *)
+
+    Theorem eq_tm_not_recognizable: (** Theorem 5.30 *)
       ~ Recognizable EQ_tm.
     Proof.
       apply reducible_unrecognizable with (A:=compl A_tm); auto.
@@ -991,7 +994,7 @@ Section A_TM. (* ----------------------------------------------- *)
       - apply co_a_tm_not_recognizable.
     Qed.
 
-    Theorem co_eq_tm_not_recognizable:
+    Theorem co_eq_tm_not_recognizable: (** Theorem 5.30 *)
       ~ Recognizable (compl EQ_tm).
     Proof.
       apply reducible_unrecognizable with (A:=compl A_tm); auto.
@@ -1000,7 +1003,7 @@ Section A_TM. (* ----------------------------------------------- *)
       - apply co_a_tm_not_recognizable.
     Qed.
 
-    Theorem eq_tm_not_decidable:
+    Theorem eq_tm_not_decidable: (** Theorem 5.4 *)
       ~ Decidable EQ_tm.
     Proof.
       intros N.
