@@ -1761,6 +1761,16 @@ Require Import Coq.Logic.Classical_Prop.
     | Loop => Loop
     end.
 
+  Lemma neg_dec:
+    forall r1 r2 b,
+    Dec r1 b ->
+    Dec r2 (negb b) ->
+    neg r1 = r2.
+  Proof.
+    intros.
+    destruct r1, r2, b; simpl in *; inversion H; inversion H0; auto.
+  Qed.
+
   Lemma neg_accept_rw r:
     neg r = Accept <-> r = Reject.
   Proof.

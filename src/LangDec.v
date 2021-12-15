@@ -5,28 +5,27 @@ Section Defs.
 
   (* -------------------------------------------------------------------------- *)
 
-  Definition Inv (m:Prog) := fun i => Run m i Reject.
+  (* The set of inputs rejected by m. *)
+  Definition REJECTS m := fun i => Run m i Reject.
 
-  Definition InvM (n m:Prog) := forall i r1 r2,
+  (* Program n is the reverse of program m.
+     * when n accepts, m rejects;
+     * when m accepts, n rejects;
+     * when n loops, m loops;
+   *)
+  Definition Reverse (n m:Prog) := forall i r1 r2,
     Run m i r1 ->
     Run n i r2 ->
     neg r1 = r2.
 
-  Lemma neg_dec:
-    forall r1 r2 b,
-    Dec r1 b ->
-    Dec r2 (negb b) ->
-    neg r1 = r2.
-  Proof.
-    intros.
-    destruct r1, r2, b; simpl in *; inversion H; inversion H0; auto.
-  Qed.
+  (* If m recognizes L, then there must exist a reverse program
+     that recognizes the REJECTS langauge. *)
 
-  Lemma inv_exists:
+  Lemma rejects_exists:
     forall m L,
     Recognizes m L ->
     exists n,
-    Recognizes n (Inv m) /\ InvM n m.
+    Recognizes n (REJECTS m) /\ Reverse n m.
   Proof.
     intros.
     exists (
@@ -36,8 +35,8 @@ Section Defs.
           halt_with (negb b)
         )
     ).
+    unfold Reverse, Recognizes.
     split. {
-      unfold Recognizes, Inv.
       intros.
       rewrite run_read_rw.
       split; intros.
@@ -48,7 +47,6 @@ Section Defs.
         + assumption.
         + apply run_ret.
     }
-    unfold InvM.
     intros.
     rewrite run_read_rw in *.
     inversion H1; subst; clear H1.
@@ -58,48 +56,45 @@ Section Defs.
       reflexivity.
   Qed.
 
-  Lemma inv_compl_equiv:
+  (* The language of m is equivalent to the complement of L
+     only when there are no loops! *)
+
+  Lemma rejects_equiv_compl:
     forall m L,
     Decides m L ->
-    Equiv (Inv m) (compl L).
+    Equiv (REJECTS m) (compl L).
   Proof.
-    unfold Equiv. 
+    unfold Equiv, REJECTS.
     intros.
-    split; intros; unfold Inv, compl in *; simpl in *;
+    split; intros; unfold compl in *; simpl in *;
     eauto using decides_run_reject, decides_reject.
   Qed.
 
   Lemma recognizes_inv_compl:
     forall m n L,
     Decides m L ->
-    Recognizes n (Inv m) ->
+    Recognizes n (REJECTS m) ->
     Recognizes n (compl L).
   Proof.
     intros.
-    assert (Hx : Equiv (Inv m) (compl L)). {
-      apply inv_compl_equiv.
-      auto.
-    }
-    apply lang_equiv with (m:=n) in Hx.
-    apply Hx in H0.
-    assumption.
+    eapply recognizes_impl; eauto using rejects_equiv_compl.
   Qed.
 
   Lemma decides_to_compl:
-    forall m L N,
+    forall m L rev_m,
     Decides m L ->
-    Recognizes N (Inv m) ->
-    InvM N m ->
+    Recognizes rev_m (REJECTS m) ->
+    Reverse rev_m m ->
     Decidable (compl L).
   Proof.
     intros.
-    apply decidable_def with (m:=N).
+    apply decidable_def with (m:=rev_m).
     apply recognizes_inv_compl with (L:=L) in H0; auto.
     apply decides_def.
     * assumption.
     * intros i Hn.
       destruct (run_exists m i) as (r, He).
-      unfold InvM in *.
+      unfold Reverse in *.
       assert (r = Loop). {
         assert (Hx: neg r = Loop) by eauto.
         destruct r; simpl in *; inversion Hx.
@@ -116,9 +111,9 @@ Section Defs.
   Proof.
     intros.
     destruct H as (m, H).
-    destruct (inv_exists m L) as (N, (?, HN)); auto.
+    destruct (rejects_exists m L) as (N, (?, HN)); auto.
     + destruct H; auto.
-    + apply decides_to_compl with (m:=m) (N:=N); auto.
+    + apply decides_to_compl with (m:=m) (rev_m:=N); auto.
   Qed.
 
   Definition par_run (m1 m2:Prog) p :=
@@ -176,16 +171,16 @@ Section Defs.
   Proof.
     unfold par_mach.
     intros m1 m2 Hr; intros.
-    apply recognizes_def.
-    + intros.
-      (* Show that whenever the implementation accepts, then the language
+    unfold Recognizes; intros.
+    rewrite run_read_rw.
+    split; intros.
+    + (* Show that whenever the implementation accepts, then the language
          accepts. We do this by thinking about the execution top to bottom:
          how did reached Accept?
          *)
       (* We perform an inversion on assumption H, which will return a case per
          constructor for par, since the first instructio nis a parallel call. *)
-      inversion H; subst; clear H.
-      inversion H1; subst; clear H1; run_simpl_all.
+      inversion H; subst; clear H; run_simpl_all.
       * (* Case par_l_seq: m1 terminated*)
         (* If m1 terminates, then we have:
           Run (if b then ACCEPT else REJECT) Accept
@@ -217,9 +212,7 @@ Section Defs.
           (* Absurd, because both machines cannot reject. *)
           assert (Hd: DisjointResults Reject Reject) by eauto.
           inversion Hd.
-    + intros.
-      destruct (run_exists m2 i) as (r, He).
-      constructor.
+    + destruct (run_exists m2 i) as (r, He).
       destruct r.
       * (* Absurd case: both cannot accept *)
         run_simpl_all.
@@ -315,7 +308,7 @@ Section Defs.
     assumption.
   Qed.
 
-  Local Lemma reject_recognize_to_accept_co_recognize:
+  Lemma reject_recognize_to_accept_co_recognize:
     forall m1 m2 L,
     Recognizes m1 L ->
     Recognizes m2 (compl L) ->
