@@ -603,11 +603,15 @@ End E_TM. (* --------------------------------------------------------------- *)
   Qed.
 
   (* 3. Show that co-A_tm map-reduces to co-SELF_tm *)
-  
-  Lemma co_A_tm_co_self_tm_rw:
-    forall i,
-    compl A_tm <[ decode_prog i, i ]> <-> compl SELF_tm i.
+
+  Lemma co_a_tm_red_co_self_tm:
+    compl SELF_tm <=m compl A_tm.
   Proof.
+    intros.
+    (* Supply the mapping: *)
+    exists (fun i => <[ decode_prog i, i ]>).
+    unfold Reduction.
+    intros.
     unfold A_tm, SELF_tm, compl; split; intros.
     - intros N1.
       contradict H.
@@ -619,18 +623,13 @@ End E_TM. (* --------------------------------------------------------------- *)
       assumption.
   Qed.
 
-  Lemma co_a_tm_red_co_self_tm:
-    compl SELF_tm <=m compl A_tm.
-  Proof.
-    intros.
-    exists (fun i => <[ decode_prog i, i ]>).
-    unfold Reduction.
-    intros.
-    rewrite co_A_tm_co_self_tm_rw.
-    reflexivity.
-  Qed.
+  (* 4. Show co-A_tm is unrecognizable.
 
-  (* 4. Show that co-A_tm is unrecognizable via map-reducibility *)
+     Proof via map-reducibility:
+     - We know co-SELF is unrecognizable.
+     - We know that co-SELF <= co-A.
+
+   *)
 
   Theorem co_a_tm_unrecognizable:
     ~ Recognizable (compl A_tm).
@@ -640,7 +639,15 @@ End E_TM. (* --------------------------------------------------------------- *)
     - apply co_self_tm_unrecognizable.
   Qed.
 
-  (* 5. Show that A_tm is undecidable via Theorem 4.22 *)
+  (* 5. A_tm is undecidable.
+
+     Proof.
+
+     We have shown that A_tm is recognizable
+     we have shown that A_tm is not co-recognizable.
+     Thus, A_tm cannot be decidable (Theorem 4.22).
+
+   *)
   Theorem a_tm_undecidable:
     ~ Decidable A_tm.
   Proof.
