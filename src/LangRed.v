@@ -546,30 +546,59 @@ End E_TM. (* --------------------------------------------------------------- *)
   Definition SELF_tm := fun i =>
     Run (decode_prog i) i Accept.
 
-  (* 1. Show that the complement of SELF is unrecognizable *)
+  (* 1. Show that the complement of SELF is unrecognizable.
+  
+    Proof.
+
+    Assume by contradiction that some program p recognizes [[p]].
+    Case analysis on the result of running the p on [[p]].
+    
+    1. ACCEPTS: its encoding as input, thus [[p]] is in co-SELF.
+       If [[p]] is in co-SELF, then by definition of co-SELF, then p cannot
+       accept [[p]].
+
+    2. REJECTS/LOOPS: its encoding as input. Since p recognizes co-SELF and
+       p rejects/loops [[p]], then [[p]] is not in co-SELF.
+
+       However, can also show that [[p]] IS in co-SELF:
+       as we only need to show that p does not accept [[p]]
+       (which is given already). 
+   *)
 
   Lemma co_self_tm_unrecognizable:
     ~ Recognizable (compl SELF_tm).
   Proof.
     intros N.
     destruct N as (p, Hr).
+    (* By contradiction, assume that p recognizes co-SELF_TM *)
     destruct (run_exists p (encode_prog p)) as (r, He).
-    assert (Hx := He).
+    assert (Hx := He). (* Let us duplicate assumption Hx *)
     destruct r.
-    - eapply recognizes_run_accept in He; eauto.
+    - (* If p accepts itself *)
+      eapply recognizes_run_accept in He; eauto.
+      (* That means that p is in co-SELF *)
       unfold compl, SELF_tm in *.
+      (* Since p is in co-self, then p should reject itself, which is an absurd  *)
       contradict He.
       run_simpl_all.
       assumption.
-    - eapply recognizes_run_reject in He; eauto.
+    - (* P rejects itself *)
+      eapply recognizes_run_reject in He; eauto.
+      (* Thus, p is NOT in co-SELF *)
       contradict He.
       unfold compl, SELF_tm.
       intros N.
+      (* Since p is in co-self, then p must accept itself, thus absurd *)
       run_simpl_all.
-    - eapply recognizes_run_loop in He; eauto.
+    - (* p loops with itself *)
+      eapply recognizes_run_loop in He; eauto.
+      (* thus p is in co-SELF *)
       contradict He.
       unfold compl, SELF_tm.
+      run_simpl.
+      (* if [[p]] is in co-SELF, then p accepts [[self]] *)
       intros N.
+      (* p accepts and loops on itself *)
       run_simpl_all.
   Qed.
 
