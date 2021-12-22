@@ -6,3 +6,4 @@ src/Regular.v
 src/Turing.v
 src/LangDec.v
 src/LangRed.v
+src/Problems.v

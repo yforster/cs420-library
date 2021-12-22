@@ -1164,595 +1164,187 @@ Require Import Coq.Logic.Classical_Prop.
     A Theory to reason about recognizability/decidability directly on
     programs.
     *)
-  Section P_DECIDER.
-    Definition PAccepts (p:Prog) i := Run p i Accept.
-
-    Lemma p_accepts_def:
-      forall p i,
-      Run p i Accept ->
-      PAccepts p i.
-    Proof.
-      intros.
-      auto.
-    Qed.
+  Section HALTS.
 
     (* A program halts *)
-    Definition PHalts p i := ~ Run p i Loop.
-
-    Lemma p_halts_def:
-      forall i r p,
-      Run p i r ->
+    Inductive Halts: Prog -> input -> Prop :=
+    | halts_read:
+      forall p i,
+      Halts (p i) i ->
+      Halts (Read p) i
+    | halts_with:
+      forall p i j,
+      Halts p j ->
+      Halts (With j p) i
+    | halts_ret:
+      forall r i,
       r <> Loop ->
-      PHalts p i.
-    Proof.
-      unfold PHalts; intros.
-      intros N.
-      assert (r = Loop) by eauto using run_fun.
-      contradiction.
-    Qed.
-
-    Lemma p_halts_accept:
-      forall p i,
-      Run p i Accept ->
-      PHalts p i.
-    Proof.
-      intros.
-      apply p_halts_def with (r:=Accept).
-      - assumption.
-      - intros N; inversion N.
-    Qed.
-
-    Lemma p_halts_reject:
-      forall p i,
-      Run p i Reject ->
-      PHalts p i.
-    Proof.
-      intros.
-      apply p_halts_def with (r:=Reject).
-      - assumption.
-      - intros N; inversion N.
-    Qed.
-
-    Lemma p_halts_loop:
-      forall p i,
-      Run p i Loop ->
-      ~ PHalts p i.
-    Proof.
-      intros.
-      intros N.
-      apply N in H.
-      assumption.
-    Qed.
-
-    Lemma p_halts_ret_accept:
-      forall i,
-      PHalts (Ret Accept) i.
-    Proof.
-      intros.
-      unfold PHalts.
-      intros N.
-      inversion N.
-    Qed.
-
-    Lemma p_halts_ret_reject:
-      forall i,
-      PHalts (Ret Reject) i.
-    Proof.
-      intros.
-      unfold PHalts.
-      intros N.
-      inversion N.
-    Qed.
-
-    Lemma p_halts_dec:
-      forall r b,
-      Dec r b ->
-      forall i,
-      PHalts (Ret r) i.
-    Proof.
-      intros.
-      apply p_halts_def with (r:=r).
-      - apply run_ret.
-      - apply dec_to_neq_loop in H.
-        assumption.
-    Qed.
-
-    Lemma p_halts_seq:
-      forall i p q r b,
-      Run p i r ->
-      Dec r b ->
-      PHalts (q b) i ->
-      PHalts (Seq p q) i.
-    Proof.
-      intros.
-      intros N.
-      inversion N; subst; clear N.
-      + assert (r1 = r) by eauto using run_fun.
-        subst.
-        assert (b0 = b) by eauto using dec_fun.
-        subst.
-        apply H1; auto.
-      + assert (r = Loop) by eauto using run_fun.
-        subst.
-        inversion H0.
-    Qed.
-
-    Inductive ParMerge p q : result -> result -> par_result -> Prop :=
-    | par_merge_left:
-      forall r b,
-      Dec r b ->
-      ParMerge p q r Loop (pleft b)
-    | par_merge_right:
-      forall r b,
-      Dec r b ->
-      ParMerge p q Loop r (pright b)
-    | par_merge_both:
-      forall r1 b1 r2 b2,
-      Dec r1 b1 ->
-      Dec r2 b2 ->
-      ParMerge p q r1 r2 (par_choice p q b1 b2).
-
-    Lemma par_merge_accept_accept p q:
-      ParMerge p q Accept Accept (par_choice p q true true).
-    Proof.
-      auto using par_merge_both,dec_accept.
-    Qed.
-
-    Lemma par_merge_reject_accept p q:
-      ParMerge p q Reject Accept (par_choice p q false true).
-    Proof.
-      auto using par_merge_both,dec_accept,dec_reject.
-    Qed.
-
-    Lemma par_merge_reject_reject p q:
-      ParMerge p q Reject Reject (par_choice p q false false).
-    Proof.
-      auto using par_merge_both,dec_accept,dec_reject.
-    Qed.
-
-    Lemma par_merge_accept_reject p q:
-      ParMerge p q Accept Reject (par_choice p q true false).
-    Proof.
-      auto using par_merge_both, dec_accept, dec_reject.
-    Qed.
-
-    Lemma par_merge_accept_loop p q:
-      ParMerge p q Accept Loop (pleft true).
-    Proof.
-      auto using par_merge_left, dec_accept, dec_reject.
-    Qed.
-
-    Lemma par_merge_loop_accept p q:
-      ParMerge p q Loop Accept (pright true).
-    Proof.
-      auto using par_merge_right, dec_accept, dec_reject.
-    Qed.
-
-    Lemma par_merge_reject_loop p q:
-      ParMerge p q Reject Loop (pleft false).
-    Proof.
-      auto using par_merge_left, dec_accept, dec_reject.
-    Qed.
-
-    Lemma par_merge_loop_reject p q:
-      ParMerge p q Loop Reject (pright false).
-    Proof.
-      auto using par_merge_right, dec_accept, dec_reject.
-    Qed.
-
-    Lemma p_halts_inv:
-      forall p i,
-      PHalts p i ->
-      Run p i Accept \/ Run p i Reject.
-    Proof.
-      intros.
-      unfold PHalts in *.
-      destruct (run_exists p i) as (r, Hr).
-      destruct r; auto.
-      contradiction.
-    Qed.
-
-    Lemma p_halts_par_both:
-      forall k p1 p2 b1 b2 r1 r2 i,
-      Run p1 i r1 ->
-      Run p2 i r2 ->
-      Dec r1 b1 ->
-      Dec r2 b2 ->
-      PHalts (k (par_choice p1 p2 b1 b2)) i ->
-      PHalts (Par p1 p2 k) i.
-    Proof.
-      intros.
-      apply p_halts_inv in H3.
-      intuition.
-      - apply p_halts_accept.
-        eapply run_par_both; eauto.
-      - apply p_halts_reject.
-        eapply run_par_both; eauto.
-    Qed.
-
-    Lemma p_halts_par_l_seq:
-      forall k p1 p2 b r i,
-      Run p1 i r ->
-      Run p2 i Loop ->
-      Dec r b ->
-      PHalts (k (pleft b)) i ->
-      PHalts (Par p1 p2 k) i.
-    Proof.
-      intros.
-      apply p_halts_inv in H2.
-      intuition.
-      - apply p_halts_accept.
-        eapply run_par_l_seq; eauto.
-      - apply p_halts_reject.
-        eapply run_par_l_seq; eauto.
-    Qed.
-
-    Lemma p_halts_par_r_seq:
-      forall k p1 p2 b r i,
-      Run p1 i Loop ->
-      Run p2 i r ->
-      Dec r b ->
-      PHalts (k (pright b)) i ->
-      PHalts (Par p1 p2 k) i.
-    Proof.
-      intros.
-      apply p_halts_inv in H2.
-      intuition.
-      - apply p_halts_accept.
-        eapply run_par_r_seq; eauto.
-      - apply p_halts_reject.
-        eapply run_par_r_seq; eauto.
-    Qed.
-
-    Lemma p_halts_par_l:
-      forall i r1 b p1 p2 k,
-      Run p1 i r1 ->
-      Dec r1 b ->
-      (forall r2 q, Run p2 i r2 -> ParMerge p1 p2 r1 r2 q -> PHalts (k q) i) ->
-      PHalts (Par p1 p2 k) i.
-    Proof.
-      intros.
-      inversion H0; subst; clear H0.
-      - destruct (run_exists p2 i) as (r2, Hp2).
-        intros N.
-        destruct r2.
-        + assert (Hp: PHalts (k (par_choice p1 p2 true true)) i). {
-            apply H1 with (r2:=Accept); auto.
-            apply par_merge_accept_accept.
-          }
-          eapply p_halts_par_both in Hp; eauto using dec_accept.
-        + assert (Hp: PHalts (k (par_choice p1 p2 true false)) i). {
-            apply H1 with (r2:=Reject); auto.
-            apply par_merge_accept_reject.
-          }
-          eapply p_halts_par_both in Hp; eauto using dec_accept, dec_reject.
-        + assert (Hp: PHalts (k (pleft true)) i). {
-            apply H1 with (r2:=Loop); auto.
-            apply par_merge_accept_loop.
-          }
-          eapply p_halts_par_l_seq in Hp; eauto using dec_accept.
-      - destruct (run_exists p2 i) as (r2, Hp2).
-        destruct r2.
-        + assert (Hp: PHalts (k (par_choice p1 p2 false true)) i). {
-            apply H1 with (r2:=Accept); auto.
-            apply par_merge_reject_accept.
-          }
-          eapply p_halts_par_both in Hp; eauto using dec_accept, dec_reject.
-        + assert (Hp: PHalts (k (par_choice p1 p2 false false)) i). {
-            apply H1 with (r2:=Reject); auto.
-            apply par_merge_reject_reject.
-          }
-          eapply p_halts_par_both in Hp; eauto using dec_accept, dec_reject.
-        + assert (Hp: PHalts (k (pleft false)) i). {
-            apply H1 with (r2:=Loop); auto.
-            apply par_merge_reject_loop.
-          }
-          eapply p_halts_par_l_seq in Hp; eauto using dec_accept, dec_reject.
-    Qed.
-
-    Lemma p_halts_par_r:
-      forall i r2 b p1 p2 k,
-      Run p2 i r2 ->
-      Dec r2 b ->
-      (forall r1 q, Run p1 i r1 -> ParMerge p1 p2 r1 r2 q -> PHalts (k q) i) ->
-      PHalts (Par p1 p2 k) i.
-    Proof.
-      intros.
-      inversion H0; subst; clear H0.
-      - destruct (run_exists p1 i) as (r1, Hp1).
-        destruct r1.
-        + assert (Hp: PHalts (k (par_choice p1 p2 true true)) i). {
-            apply H1 with (r1:=Accept); auto.
-            apply par_merge_accept_accept.
-          }
-          eapply p_halts_par_both in Hp; eauto using dec_accept, dec_reject.
-        + assert (Hp: PHalts (k (par_choice p1 p2 false true)) i). {
-            apply H1 with (r1:=Reject); auto.
-            apply par_merge_reject_accept.
-          }
-          eapply p_halts_par_both in Hp; eauto using dec_accept, dec_reject.
-        + assert (Hp: PHalts (k (pright true)) i). {
-            apply H1 with (r1:=Loop); auto.
-            apply par_merge_loop_accept.
-          }
-          eapply p_halts_par_r_seq in Hp; eauto using dec_accept.
-      - destruct (run_exists p1 i) as (r1, Hp1).
-        destruct r1.
-        + assert (Hp: PHalts (k (par_choice p1 p2 true false)) i). {
-            apply H1 with (r1:=Accept); auto.
-            apply par_merge_accept_reject.
-          }
-          eapply p_halts_par_both in Hp; eauto using dec_accept, dec_reject.
-        + assert (Hp: PHalts (k (par_choice p1 p2 false false)) i). {
-            apply H1 with (r1:=Reject); auto.
-            apply par_merge_reject_reject.
-          }
-          eapply p_halts_par_both in Hp; eauto using dec_accept, dec_reject.
-        + assert (Hp: PHalts (k (pright false)) i). {
-            apply H1 with (r1:=Loop); auto.
-            apply par_merge_loop_reject.
-          }
-          eapply p_halts_par_r_seq in Hp; eauto using dec_accept, dec_reject.
-    Qed.
-
-    Lemma p_halts_tur:
+      Halts (Ret r) i
+    | halts_call:
       forall m i,
       ~ Exec m i Loop ->
-      PHalts (Tur m) i.
+      Halts (Tur m) i
+    | halts_seq:
+      forall p i b r q,
+      Run p i r ->
+      Dec r b ->
+      Halts (q b) i ->
+      Halts (mlet x <- p in q x) i
+    | halts_par_l_seq:
+      forall p q i r b c,
+      Run p i r ->
+      Run q i Loop ->
+      Dec r b ->
+      Halts (c (pleft b)) i ->
+      Halts (Par p q c) i
+    | halts_par_r_seq:
+      forall p q i r b c,
+      Run p i Loop ->
+      Run q i r ->
+      Dec r b ->
+      Halts (c (pright b)) i ->
+      Halts (Par p q c) i
+    | halts_par_both:
+      forall p q i r1 r2 b1 b2 c,
+      Run p i r1 ->
+      Run q i r2 ->
+      Dec r1 b1 ->
+      Dec r2 b2 ->
+      Halts (c (par_choice p q b1 b2)) i ->
+      Halts (Par p q c) i.
+
+    Lemma halts_def:
+      forall i p,
+      ~ Run p i Loop ->
+      Halts p i.
     Proof.
-      intros.
-      destruct (exec_exists m i) as (r, He).
-      apply p_halts_def with (r:=r); eauto using run_call.
-      intros N.
-      subst.
-      contradiction.
+      intros i p.
+      destruct (run_exists p i) as (r, Hr).
+      induction Hr; intros Hno_run.
+      - constructor.
+        apply IHHr; clear IHHr.
+        intros N.
+        contradict Hno_run.
+        constructor.
+        assumption.
+      - constructor.
+        apply IHHr; clear IHHr.
+        intros N.
+        contradict Hno_run.
+        constructor; auto.
+      - constructor.
+        intros N; subst.
+        contradict Hno_run.
+        constructor.
+      - constructor.
+        intros N.
+        contradict Hno_run.
+        constructor.
+        assumption.
+      - eapply halts_seq; eauto.
+        apply IHHr2; clear IHHr2.
+        intros N.
+        contradict Hno_run.
+        eapply run_seq_cont; eauto.
+      - contradict Hno_run.
+        apply run_seq_loop.
+        assumption.
+      - eapply halts_par_l_seq; eauto.
+        apply IHHr3; clear IHHr3.
+        intros N.
+        contradict Hno_run.
+        eapply run_par_l_seq; eauto.
+      - eapply halts_par_r_seq; eauto.
+        apply IHHr3; clear IHHr3.
+        intros N.
+        contradiction Hno_run.
+        eapply run_par_r_seq; eauto.
+      - eapply halts_par_both; eauto.
+        apply IHHr3; clear IHHr3.
+        intros N.
+        contradict Hno_run.
+        eapply run_par_both; eauto.
+      - contradict Hno_run.
+        apply run_par_loop; auto.
     Qed.
 
-    Lemma p_halts_call_decider:
+    Ltac dec_absurd := match goal with
+          | [ H1: Run ?p ?i Loop, H2: Run ?p ?i ?r, H3: Dec ?r _ |- _ ]
+            => assert (r = Loop) by eauto using run_fun; subst; inversion H3
+          end.
+
+    Lemma halts_no_loop:
+      forall i p,
+      Halts p i ->
+      ~ Run p i Loop.
+    Proof.
+      intros.
+      induction H; intros N;
+        try contradict IHHalts;
+        try (inversion N; subst;
+          clear N;
+          try assumption;
+          try contradiction;
+          fail).
+      - inversion N; subst; clear N; try dec_absurd.
+        assert (r1 = r) by eauto using run_fun; subst.
+        assert (b0 = b) by eauto using dec_fun; subst.
+        auto.
+      - inversion N; subst; clear N; try dec_absurd.
+        assert (r1 = r) by eauto using run_fun; subst.
+        assert (b0 = b) by eauto using dec_fun; subst.
+        auto.
+      - inversion N; subst; clear N; try dec_absurd.
+        assert (r1 = r) by eauto using run_fun; subst.
+        assert (b0 = b) by eauto using dec_fun; subst.
+        auto.
+      - inversion N; subst; clear N; try dec_absurd.
+        assert (r1 = r0) by eauto using run_fun; subst.
+        assert (r3 = r2) by eauto using run_fun; subst.
+        assert (b0 = b1) by eauto using dec_fun; subst.
+        assert (b2 = b3) by eauto using dec_fun; subst.
+        auto.
+    Qed.
+
+    Lemma halts_rw:
+      forall p i,
+      ~ Run p i Loop <-> Halts p i.
+    Proof.
+      split; intros; auto using halts_def, halts_no_loop.
+    Qed.
+
+    Lemma halts_call_decider:
       forall m i,
       Decider m ->
-      PHalts m i.
+      Halts m i.
     Proof.
       intros.
       assert (H := H i).
-      destruct (run_exists m i) as (r, He).
-      eapply p_halts_def; eauto.
-      intros N.
-      subst.
-      contradiction.
-    Qed.
+      apply halts_def; auto.
+  Qed.
 
-    Lemma p_halts_seq_call:
-      forall m i r k b,
-      Exec m i r ->
-      Dec r b ->
-      PHalts (k b) i ->
-      PHalts (Seq (Tur m) k) i.
-    Proof.
-      intros.
-      apply p_halts_seq with (r:=r) (b:=b); auto using run_call.
-    Qed.
-
-    Lemma p_halts_seq_call_decider:
-      forall m i k,
-      Decider m ->
-      (forall r b, Run m i r -> Dec r b -> PHalts (k b) i) ->
-      PHalts (Seq m k) i.
-    Proof.
-      intros.
-      destruct decider_to_p_run with (m:=m) (i:=i)
-       as (r, (b, (Ha, Hb))); auto.
-      apply p_halts_seq with (r:=r) (b:=b); auto.
-      eauto.
-    Qed.
-
-    Lemma p_halts_halt_with:
+    Lemma halts_halt_with:
       forall b i,
-      PHalts (halt_with b) i.
+      Halts (halt_with b) i.
     Proof.
       intros.
-      apply p_halts_def with (r:=if b then Accept else Reject).
-      - destruct b. {
-          apply run_ret.
-        }
-        apply run_ret.
-      - destruct b; intros N; inversion N.
+      apply halts_ret.
+      destruct b; intuition; inversion H.
     Qed.
 
-    Definition PDecider (p:Prog) := forall i, PHalts p i.
-
-    Lemma p_decider_def:
+    Lemma decider_def_halts:
       forall p,
-      (forall i, PHalts p i) ->
-      PDecider p.
-    Proof.
-      intros.
-      unfold PDecider.
-      assumption.
-    Qed.
-
-    Lemma p_decider_to_decider:
-      forall p,
-      PDecider p ->
+      (forall i, Halts p i) ->
       Decider p.
     Proof.
       intros.
       unfold Decider.
       intros.
-      assert (H := H i).
-      apply H.
-    Qed.
-
-    Lemma p_halts_from_no_loop:
-      forall p i,
-      ~ Run p i Loop ->
-      PHalts p i.
-    Proof.
-      intros.
-      apply H.
-    Qed.
-
-    Lemma decider_to_p_decider:
-      forall p,
-      Decider p ->
-      PDecider p.
-    Proof.
-      unfold PDecider, Decider.
-      intros.
-      assert (H := H i).
-      auto using p_halts_from_no_loop.
-    Qed.
-
-    Lemma p_halts_seq_p_decider:
-      forall p k,
-      PDecider p ->
-      forall i,
-      (forall r b, Run p i r -> Dec r b -> PHalts (k b) i) ->
-      PHalts (Seq p k) i.
-    Proof.
-      intros.
-      apply p_decider_to_decider in H.
-      apply decider_to_p_run with (i:=i) in H.
-      destruct H as (r, (b, (Hr, Hd))).
-      apply p_halts_seq with (r:=r) (b:=b); auto.
-      eapply H0; eauto.
-    Qed.
-
-    Definition PDecides p L := Recognizes p L /\ PDecider p.
-
-    Lemma p_decides_def:
-      forall p L,
-      Recognizes p L ->
-      PDecider p ->
-      PDecides p L.
-    Proof.
-      intros.
-      unfold PDecides.
+      apply halts_no_loop.
       auto.
     Qed.
 
-    Lemma p_decides_to_decides:
-      forall p L,
-      PDecides p L ->
-      Decides p L.
-    Proof.
-      intros.
-      unfold Decides.
-      destruct H.
-      split.
-      - assumption.
-      - apply p_decider_to_decider.
-        assumption.
-    Qed.
-
-    Lemma p_decides_to_p_recognizes:
-      forall p L,
-      PDecides p L ->
-      Recognizes p L.
-    Proof.
-      intros.
-      destruct H.
-      assumption.
-    Qed.
-
-    Lemma p_decides_to_p_decider:
-      forall p L,
-      PDecides p L ->
-      PDecider p.
-    Proof.
-      intros.
-      destruct H; auto.
-    Qed.
-
-    Lemma p_decides_run_accept:
-      forall p L i,
-      PDecides p L ->
-      Run p i Accept ->
-      L i.
-    Proof.
-      intros.
-      apply p_decides_to_p_recognizes in H.
-      apply recognizes_run_accept with (p:=p); auto.
-    Qed.
-
-    Lemma p_decides_run_reject:
-      forall p L i,
-      PDecides p L ->
-      Run p i Reject ->
-      ~ L i.
-    Proof.
-      intros.
-      apply p_decides_to_p_recognizes in H.
-      eauto using recognizes_run_reject.
-    Qed.
-
-    Lemma p_decider_run_dec:
-      forall p i r,
-      PDecider p ->
-      Run p i r ->
-      exists b, Dec r b.
-    Proof.
-      intros.
-      apply p_decider_to_decider in H.
-      apply neq_loop_to_dec.
-      intros N; subst.
-      unfold Decider in *.
-      apply H in H0; auto.
-    Qed.
-
-    Lemma p_decides_reject:
-      forall p L i r,
-      PDecides p L ->
-      Run p i r ->
-      ~ L i ->
-      r = Reject.
-    Proof.
-      intros.
-      destruct H as (Ha, Hb).
-      apply recognizes_not_accept with (p:=p) in H1; auto.
-      destruct r.
-      - contradiction.
-      - reflexivity.
-      - apply p_decider_run_dec in H0; auto.
-        destruct H0 as (b, H).
-        inversion H.
-    Qed.
-
-    Lemma p_decides_accept:
-      forall p L i r,
-      PDecides p L ->
-      Run p i r ->
-      L i ->
-      r = Accept.
-    Proof.
-      intros.
-      apply p_decides_to_p_recognizes in H.
-      eapply recognizes_accept in H1; eauto.
-      eauto using run_fun.
-    Qed.
-
-    Lemma p_decidable_def:
-      forall p L,
-      PDecides p L ->
-      Decidable L.
-    Proof.
-      intros.
-      unfold Decidable.
-      eauto using p_decides_to_decides.
-    Qed.
-
-    Lemma decidable_to_p_decides:
-      forall L,
-      Decidable L ->
-      exists p, PDecides p L.
-    Proof.
-      intros.
-      destruct H as (d, H).
-      exists d.
-      destruct H as (Ha, Hb).
-      auto using p_decides_def, decider_to_p_decider.
-    Qed.
-  End P_DECIDER.
+  End HALTS.
 
   Definition neg r :=
     match r with
