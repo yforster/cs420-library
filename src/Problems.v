@@ -70,14 +70,16 @@ Section A_TM. (* ----------------------------------------------- *)
     The following is a description of [negator].
       negator = “On input <M>, where M is a TM :
           1. Run D on input <M, <M>>.
-          2. Output the opposite of what D outputs. That is, if D accepts,
-            reject ; and if D rejects, accept.”
+          2. Output the opposite of what D outputs.
+            That is, if D accepts, reject ;
+            and if D rejects, accept.”
   *)
 
   Definition negator D :=
     Read (fun w =>
-      mlet b <- With <[ decode_prog w, w ]> D
-      in halt_with (negb b)
+      mlet b <- With <[ decode_prog w, w ]> D in
+      if b then REJECT
+      else ACCEPT
     ).
 
   Lemma negator_accept:
@@ -89,6 +91,7 @@ Section A_TM. (* ----------------------------------------------- *)
     intros.
     run_simpl_all.
     inversion H1; subst; clear H1.
+    inversion H3; subst; clear H3;
     run_simpl_all.
     assumption.
   Qed.
@@ -101,9 +104,9 @@ Section A_TM. (* ----------------------------------------------- *)
     unfold negator.
     intros.
     run_simpl_all.
-    inversion H1; subst; clear H1.
-    run_simpl_all.
-    assumption.
+    inversion H1; subst; clear H1;
+    inversion H3; subst; clear H3;
+    run_simpl_all; auto.
   Qed.
 
   Lemma negator_loop:
@@ -115,8 +118,10 @@ Section A_TM. (* ----------------------------------------------- *)
     intros.
     intros N.
     run_simpl_all.
-    inversion H1; subst; clear H1; run_simpl_all.
-    apply decider_no_loop in H5; auto.
+    inversion H1; subst; clear H1.
+    - inversion H4; subst; run_simpl_all.
+    - run_simpl_all.
+      apply decider_no_loop in H5; auto.
   Qed.
 
   Lemma no_decides_a_tm:
