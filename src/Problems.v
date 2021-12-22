@@ -132,11 +132,8 @@ Section A_TM. (* ----------------------------------------------- *)
     intros N.
     (* Suppose that D is a decider for A_TM. *)
     destruct N as (D, is_dec).
-      (*
-    (* Now we construct a new Turing machine [negator] with D as a subroutine. *)
-    assert (X:= negator_recognizes D).
-    *)
     destruct is_dec as (Hrec, Hdec).
+    (* Now we construct a new Turing machine [negator] with D as a subroutine. *)
     (* What happens when we run [negator] with its own description <negator> as
       input? *)
     destruct (run_exists (negator D) [[negator D]] ) as (r, He).
