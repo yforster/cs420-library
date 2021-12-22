@@ -18,12 +18,13 @@ Section A_TM. (* ----------------------------------------------- *)
 
   (** If [d] recognizes A_tm and machine d runs <M,w> *)
   Lemma a_tm_run_reject:
-    forall d,
-    Recognizes d A_tm ->
+    forall p,
+    Recognizes p A_tm ->
     forall w M,
-    Run d <[ M, w ]> Reject -> 
+    Run p <[ M, w ]> Reject -> 
     ~ Run M w Accept.
   Proof.
+    unfold A_tm.
     intros.
     intros N.
     apply recognizes_run_reject with (L:=A_tm) in H0; auto.
@@ -61,72 +62,6 @@ Section A_TM. (* ----------------------------------------------- *)
     assumption.
   Qed.
 
-  Definition Negator (D:Prog) : lang :=
-    fun p =>
-      let M := decode_prog p in
-      Run D (encode_prog_input M p) Reject.
-
-  (** [D] recognizes [A_tm].
-      N accepts <M>, which means that D rejects <M, <M>>.
-      Thus, M with <M> either loops or rejects, as recognizing
-      A_tm is weaker then returning the same result.
-    *)
-
-  Lemma run_negator_accept:
-    forall N D w,
-    Recognizes D A_tm ->
-    Recognizes N (Negator D) ->
-    Run N w Accept ->
-    ~ Run (decode_prog w) w Accept.
-  Proof.
-    intros.
-    apply recognizes_run_accept with (L:=Negator D) in H1; auto.
-    eapply a_tm_run_reject in H1; eauto.
-  Qed.
-
-  Lemma negator_no:
-    forall D w,
-    Decider D ->
-    ~ Negator D w ->
-    Run D <[ decode_prog w, w ]> Accept.
-  Proof.
-    intros.
-    unfold Negator in H0.
-    remember (encode_prog_input (decode_prog w) w) as j.
-    (* If D does not reject, it must accept *)
-    assert (Hd: Run D j Accept) by eauto using decider_not_reject.
-    subst.
-    assumption.
-  Qed.
-
-  Lemma run_negator_reject:
-    forall N D w,
-    Recognizes D A_tm ->
-    Recognizes N (Negator D) ->
-    Run N w Reject ->
-    Decider D ->
-    Run (decode_prog w) w Accept.
-  Proof.
-    intros.
-    apply recognizes_run_reject with (L:=Negator D) in H1; auto.
-    assert (Ha: Run D <[ decode_prog w, w ]> Accept) by auto using negator_no.
-    apply a_tm_run_accept in Ha; auto.
-  Qed.
-
-  Lemma run_negator_loop:
-    forall N D w,
-    Recognizes D A_tm ->
-    Recognizes N (Negator D) ->
-    Run N w Loop ->
-    Decider D ->
-    Run (decode_prog w) w Accept.
-  Proof.
-    intros.
-    apply recognizes_run_loop with (L:=Negator D) in H1; auto.
-    apply negator_no in H1; auto.
-    apply a_tm_run_accept in H1; auto.
-  Qed.
-
   (**
     This new TM calls D to determine what M does when the input to M is its own
     description <M, <M>>. Once D has determined this information, it does the
@@ -138,37 +73,50 @@ Section A_TM. (* ----------------------------------------------- *)
           2. Output the opposite of what D outputs. That is, if D accepts,
             reject ; and if D rejects, accept.”
   *)
-  Definition negator (D:Prog) :=
+
+  Definition negator D :=
     Read (fun w =>
-      let M := decode_prog w in
-      (* D decides A_TM, thus we are running M with <M> *)
-      With <[ M , w ]> (
-        mlet b <- D in
-        halt_with (negb b)
-      )
+      mlet b <- With <[ decode_prog w, w ]> D
+      in halt_with (negb b)
     ).
 
-  Lemma negator_recognizes:
-    forall H,
-    Recognizes (negator H) (Negator H).
+  Lemma negator_accept:
+    forall D,
+    Run (negator D) [[negator D]] Accept ->
+    Run D <[ negator D, [[negator D]] ]> Reject.
   Proof.
-    intros.
-    unfold Recognizes.
-    split; intros. {
-      unfold negator, Negator in *.
-      inversion H0; subst; clear H0.
-      inversion H2; subst; clear H2.
-      inversion H5; subst; clear H5.
-      run_simpl_all.
-      assumption.
-    }
-    unfold Negator in *.
     unfold negator.
-    constructor.
-    constructor.
-    apply run_seq_reject.
-    - assumption.
-    - apply run_ret.
+    intros.
+    run_simpl_all.
+    inversion H1; subst; clear H1.
+    run_simpl_all.
+    assumption.
+  Qed.
+
+  Lemma negator_reject:
+    forall D,
+    Run (negator D) [[negator D]] Reject ->
+    Run D <[ negator D, [[negator D]] ]> Accept.
+  Proof.
+    unfold negator.
+    intros.
+    run_simpl_all.
+    inversion H1; subst; clear H1.
+    run_simpl_all.
+    assumption.
+  Qed.
+
+  Lemma negator_loop:
+    forall D,
+    Decider D ->
+    ~ Run (negator D) [[negator D]] Loop.
+  Proof.
+    unfold negator.
+    intros.
+    intros N.
+    run_simpl_all.
+    inversion H1; subst; clear H1; run_simpl_all.
+    apply decider_no_loop in H5; auto.
   Qed.
 
   Lemma no_decides_a_tm:
@@ -179,23 +127,29 @@ Section A_TM. (* ----------------------------------------------- *)
     intros N.
     (* Suppose that D is a decider for A_TM. *)
     destruct N as (D, is_dec).
+      (*
     (* Now we construct a new Turing machine [negator] with D as a subroutine. *)
     assert (X:= negator_recognizes D).
-    remember (negator D) as N.
+    *)
     destruct is_dec as (Hrec, Hdec).
     (* What happens when we run [negator] with its own description <negator> as
       input? *)
-    destruct (run_exists N (encode_prog N)) as (r, He).
+    destruct (run_exists (negator D) [[negator D]] ) as (r, He).
     assert (Hx := He).
     (* (Let us duplicate Heqr as we will need it later.) *)
     destruct r; subst.
-    - eapply run_negator_accept with (D:=D) in He; eauto.
+    - apply negator_accept in He.
+      eapply recognizes_run_reject in He; eauto.
+      contradict He.
+      unfold A_tm.
       run_simpl_all.
-      contradiction.
-    - apply run_negator_reject with (D:=D) in He; eauto.
+      assumption.
+    - apply negator_reject in He.
+      eapply recognizes_run_accept in He; eauto.
+      (* He: Run (negator D) [[negator D]] accept *)
+      unfold A_tm in *.
       run_simpl_all.
-    - apply run_negator_loop with (D:=D) in He; eauto.
-      run_simpl_all.
+    - apply negator_loop in Hx; auto.
   Qed.
 
   (** Theorem 4.11, pp 207 *)
