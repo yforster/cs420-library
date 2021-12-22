@@ -210,13 +210,14 @@ Section A_TM. (* ----------------------------------------------- *)
   Qed.
 
 
-  (** *************************
-      * Simpler proof follows *
-      *************************
+  (** *********************************************
+      * Another proof of A_tm undecidable follows *
+      *********************************************
 
       Show that A_tm is undecidable via map-reducibility to SELF_tm.
       Proof originally by Yannick Forster.
       
+      This proof similar to Sipser's Theorem 6.5.
   *)
 
   (* Define the language of programs that accept their own code. *)
