@@ -5,120 +5,6 @@ Section Defs.
 
   (* -------------------------------------------------------------------------- *)
 
-  (* The set of inputs rejected by m. *)
-  Definition REJECTS m := fun i => Run m i Reject.
-
-  (* Program n is the reverse of program m.
-     * when n accepts, m rejects;
-     * when m accepts, n rejects;
-     * when n loops, m loops;
-   *)
-  Definition Reverse (n m:Prog) := forall i r1 r2,
-    Run m i r1 ->
-    Run n i r2 ->
-    neg r1 = r2.
-
-  (* If m recognizes L, then there must exist a reverse program
-     that recognizes the REJECTS langauge. *)
-
-  Lemma rejects_exists:
-    forall m L,
-    Recognizes m L ->
-    exists n,
-    Recognizes n (REJECTS m) /\ Reverse n m.
-  Proof.
-    intros.
-    exists (
-      Read (
-        fun w =>
-          mlet b <- m in
-          halt_with (negb b)
-        )
-    ).
-    unfold Reverse, Recognizes.
-    split. {
-      intros.
-      rewrite run_read_rw.
-      split; intros.
-      - inversion H0; subst; clear H0.
-        run_simpl_all.
-        assumption.
-      - apply run_seq_reject.
-        + assumption.
-        + apply run_ret.
-    }
-    intros.
-    rewrite run_read_rw in *.
-    inversion H1; subst; clear H1.
-    run_simpl_all.
-    - eauto using neg_dec.
-    - run_simpl_all.
-      reflexivity.
-  Qed.
-
-  (* The language of m is equivalent to the complement of L
-     only when there are no loops! *)
-
-  Lemma rejects_equiv_compl:
-    forall m L,
-    Decides m L ->
-    Equiv (REJECTS m) (compl L).
-  Proof.
-    unfold Equiv, REJECTS.
-    intros.
-    split; intros; unfold compl in *; simpl in *;
-    eauto using decides_run_reject, decides_reject.
-  Qed.
-
-  Lemma recognizes_inv_compl:
-    forall m n L,
-    Decides m L ->
-    Recognizes n (REJECTS m) ->
-    Recognizes n (compl L).
-  Proof.
-    intros.
-    eapply recognizes_impl; eauto using rejects_equiv_compl.
-  Qed.
-
-  Lemma decides_inv_run_result:
-    forall p L,
-    Decides p L ->
-    forall i r,
-    Run p i r ->
-    r = Accept \/ r = Reject.
-  Proof.
-    intros.
-    destruct H as (Ha, Hb).
-    destruct (Hb i); run_simpl_all; auto.
-  Qed.
-
-  Lemma decides_to_compl:
-    forall m L rev_m,
-    Decides m L ->
-    Recognizes rev_m (REJECTS m) ->
-    Reverse rev_m m ->
-    Decidable (compl L).
-  Proof.
-    intros.
-    apply decidable_def with (m:=rev_m).
-    apply recognizes_inv_compl with (L:=L) in H0; auto.
-    apply decides_def.
-    * assumption.
-    * intros i.
-      destruct (run_exists m i) as (r, He).
-      assert (Run rev_m i (neg r)). {
-        destruct (run_exists rev_m i) as (r', Hf).
-        unfold Reverse in *.
-        assert (neg r = r') by eauto.
-        subst.
-        assumption.
-      }
-      assert (Hx: r = Accept \/ r = Reject). {
-        eapply decides_inv_run_result; eauto.
-      }
-      destruct Hx; subst; simpl in *; auto.
-  Qed.
-
   Lemma decidable_to_compl:
     forall L,
     Decidable L ->
@@ -126,9 +12,23 @@ Section Defs.
   Proof.
     intros.
     destruct H as (m, H).
-    destruct (rejects_exists m L) as (N, (?, HN)); auto.
-    + destruct H; auto.
-    + apply decides_to_compl with (m:=m) (rev_m:=N); auto.
+    apply decidable_def with (m:=mlet b <- m in halt_with (negb b)).
+    apply decides_def.
+    - unfold compl.
+      split; intros. {
+        intros N.
+        assert (Run m i Accept) by eauto using decides_accept.
+        inversion H0; subst; clear H0.
+        run_simpl_all.
+      }
+      assert (Run m i Reject) by eauto using decides_reject.
+      eapply run_seq_cont; eauto using dec_reject.
+      constructor.
+    - apply halts_to_decider.
+      intros.
+      destruct decides_to_run_dec with (p:=m) (L:=L) (i:=i) as (r, (b, (Hr, Hd))); auto.
+      apply halts_seq with (b:=b) (r:=r); auto.
+      apply halts_halt_with.
   Qed.
 
   Definition par_run (m1 m2:Prog) p :=
