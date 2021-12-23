@@ -80,6 +80,18 @@ Section Defs.
     eapply recognizes_impl; eauto using rejects_equiv_compl.
   Qed.
 
+  Lemma decides_inv_run_result:
+    forall p L,
+    Decides p L ->
+    forall i r,
+    Run p i r ->
+    r = Accept \/ r = Reject.
+  Proof.
+    intros.
+    destruct H as (Ha, Hb).
+    destruct (Hb i); run_simpl_all; auto.
+  Qed.
+
   Lemma decides_to_compl:
     forall m L rev_m,
     Decides m L ->
@@ -92,16 +104,19 @@ Section Defs.
     apply recognizes_inv_compl with (L:=L) in H0; auto.
     apply decides_def.
     * assumption.
-    * intros i Hn.
+    * intros i.
       destruct (run_exists m i) as (r, He).
-      unfold Reverse in *.
-      assert (r = Loop). {
-        assert (Hx: neg r = Loop) by eauto.
-        destruct r; simpl in *; inversion Hx.
-        reflexivity.
+      assert (Run rev_m i (neg r)). {
+        destruct (run_exists rev_m i) as (r', Hf).
+        unfold Reverse in *.
+        assert (neg r = r') by eauto.
+        subst.
+        assumption.
       }
-      subst.
-      apply decides_no_loop with (L:=L) in He; auto.
+      assert (Hx: r = Accept \/ r = Reject). {
+        eapply decides_inv_run_result; eauto.
+      }
+      destruct Hx; subst; simpl in *; auto.
   Qed.
 
   Lemma decidable_to_compl:
@@ -365,20 +380,11 @@ Section Defs.
       reflexivity.
     + unfold Decider.
       intros.
-      assert (Hp := Hp i).
-      destruct (run_exists m1 i) as (r', He).
-      intros N; subst.
-      destruct r'.
-      - unfold Lang in *.
-        repeat rewrite build_spec in *.
-        intuition; run_simpl_all.
-      - apply reject_recognize_to_accept_co_recognize with (m2:=m2) (L:=L) in He; auto.
-        intuition; run_simpl_all.
-      - (* Since [m1 i] loops, then [m2 i] accepts : *)
-        apply recognizes_run_loop with (L:=L) in He; auto.
-        apply co_recognizes_accept with (m:=m2) in He; auto.
-        (* Let us simplify [m2] accepts in [Hp] *)
-        intuition; run_simpl_all.
+      destruct (Hp i); intuition.
+      apply recognizes_run_loop with (L:=L) in H2; auto.
+      apply co_recognizes_accept with (m:=m2) in H2; auto.
+      (* We have that m2 accepts i and also loops with i *)
+      run_simpl_all.
   Qed.
 
   (** Theorem 4.22 *)

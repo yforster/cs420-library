@@ -166,12 +166,11 @@ Require Import Turing.LangDec.
         apply Hr.
         apply Hred.
         assumption.
-      - unfold Decider in *.
+      - apply halts_to_decider.
         intros.
-        intros N; subst.
-        run_simpl_all.
-        apply Hd in H4.
-        contradiction.
+        constructor.
+        constructor.
+        auto using decider_to_halts.
     Qed.
 
     Theorem reducible_recognizable: (*------------ Theorem 5.28 ------------- *)

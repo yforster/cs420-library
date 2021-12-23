@@ -347,7 +347,7 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
 
   Definition HALT_tm : lang := fun p =>
     let (M, w) := decode_prog_input p in
-    ~ Run M w Loop.
+    Run M w Accept \/ Run M w Reject.
 
   Definition HALT_tm_to_A_tm D : lang :=
     (fun p =>
@@ -416,21 +416,27 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
         apply decides_accept with (L:=HALT_tm); auto.
         unfold HALT_tm.
         rewrite Heq.
-        intros N.
-        run_simpl_all.
-      + unfold Decider.
+        auto.
+      + assert (Hx: Recognizes R HALT_tm). {
+          destruct H; auto.
+        }
+        apply halts_to_decider.
         intros.
-        intros N.
-        apply halt_mach_loop in N.
+        apply decides_to_halts with (i:=i) in H.
+        unfold HALT_tm_impl.
+        constructor.
         destruct (decode_prog_input i) as (M,w) eqn:Heqp.
-        intuition.
-        - assert (Hx: HALT_tm i). {
-            eapply decides_run_accept; eauto.
-          }
-          unfold HALT_tm in Hx.
+        apply halts_to_run_dec in H.
+        destruct H as (r, (b, (Hr, Hd))).
+        eapply halts_seq; eauto.
+        inversion Hd; subst.
+        - constructor.
+          eapply recognizes_run_accept  in Hr; eauto; clear Hx.
+          unfold HALT_tm in *.
           rewrite Heqp in *.
-          contradiction.
-        - eapply decides_no_loop in H0; eauto.
+          apply run_to_halts.
+          auto.
+        - constructor.
     }
     apply a_tm_undecidable in Hx.
     assumption.
@@ -624,14 +630,18 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
     Decider D ->
     Decider (E_tm_A_tm D).
   Proof.
-    unfold Decider, E_tm_A_tm.
     intros.
-    intros N; subst.
-    run_simpl.
+    apply halts_to_decider.
+    intros.
+    unfold E_tm_A_tm.
+    constructor.
     destruct (decode_prog_input _) as (M, w).
-    inversion H1; subst; clear H1; run_simpl_all.
-    apply H in H5.
-    contradiction.
+    apply decider_to_halts with (i:=[[E_tm_M1 M w]] ) in H.
+    apply halts_to_run_dec in H.
+    destruct H as (r, (b, (Hr, Hd))).
+    eapply halts_seq; eauto.
+    - constructor; auto.
+    - apply halts_halt_with.
   Qed.
 
   Theorem E_tm_undecidable:
