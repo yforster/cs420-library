@@ -857,14 +857,49 @@ Require Import Coq.Logic.Classical_Prop.
       apply recognizes_accept with (L:=L); auto.
     Qed.
 
+    Lemma decides_inv_run_result:
+      forall p L,
+      Decides p L ->
+      forall i r,
+      Run p i r ->
+      r = Accept \/ r = Reject.
+    Proof.
+      intros.
+      destruct H as (Ha, Hb).
+      destruct (Hb i);
+      eauto using run_fun.
+    Qed.
+
     Lemma decider_to_run:
-      forall m,
-      Decider m ->
+      forall p,
+      Decider p ->
       forall i,
-      Run m i Accept \/ Run m i Reject.
+      Run p i Accept \/ Run p i Reject.
     Proof.
       intros.
       unfold Decider in *.
+      auto.
+    Qed.
+
+
+  Lemma decides_to_run:
+    forall p L,
+    Decides p L ->
+    forall i,
+    Run p i Accept \/ Run p i Reject.
+  Proof.
+    intros.
+    destruct H.
+    eauto.
+  Qed.
+
+    Lemma decider_exists:
+      forall p i,
+      Decider p ->
+      Run p i Accept \/ Run p i Reject.
+    Proof.
+      intros.
+      assert (H := H i).
       auto.
     Qed.
 
@@ -1292,6 +1327,17 @@ Require Import Coq.Logic.Classical_Prop.
       destruct (H i); eexists; eexists; split; eauto; constructor.
     Qed.
 
+    Lemma decides_to_run_dec:
+      forall p L,
+      Decides p L ->
+      forall i,
+      exists r b, Run p i r /\ Dec r b.
+    Proof.
+      intros.
+      destruct H.
+      apply decider_to_run_dec; auto.
+    Qed.
+  
     Ltac dec_absurd := match goal with
           | [ H1: Run ?p ?i Loop, H2: Run ?p ?i ?r, H3: Dec ?r _ |- _ ]
             => assert (r = Loop) by eauto using run_fun; subst; inversion H3
