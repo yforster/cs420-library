@@ -174,8 +174,7 @@ Section Defs.
       try (destruct b; run_simpl_all; auto).
       + right.
         intros N.
-        assert (X: Accept = Loop) by (run_simpl; auto).
-        inversion X.
+        run_simpl_all.
       + destruct (par_choice _ _ _ _) eqn:Hp;
         apply par_choice_spec in Hp;
         inversion Hp; subst; clear Hp;
