@@ -1020,10 +1020,6 @@ Require Import Coq.Logic.Classical_Prop.
   End Decidable.
 
   Definition halt_with (b:bool) := Ret (if b then Accept else Reject).
-  (* XXX: remove me *)
-  Definition Empty : lang := fun p => False.
-  Definition IsEmpty M := Recognizes M Empty.
-  Definition NeverAccept M := (forall (i:input), ~ Run M i Accept).
 
   Section RUN.
 
@@ -1479,23 +1475,6 @@ Require Import Coq.Logic.Classical_Prop.
     neg r = Loop <-> r = Loop.
   Proof.
     destruct r; simpl; split; auto; intros; inversion H.
-  Qed.
-
-  Lemma is_empty_never_accept_rw:
-    forall M,
-    IsEmpty M <-> NeverAccept M.
-  Proof.
-    unfold IsEmpty, NeverAccept; split; intros.
-    - intros N; subst.
-      apply H in N.
-      unfold Empty in *.
-      assumption.
-    - unfold Recognizes.
-      split; intros. {
-        apply H in H0.
-        contradiction.
-      }
-      inversion H0.
   Qed.
 
   (** Tactics that simplify `Run` objects in the assumptions. *)

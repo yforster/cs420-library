@@ -16,52 +16,6 @@ Section A_TM. (* ----------------------------------------------- *)
     let (M, w) := decode_prog_input p in
     Run M w Accept.
 
-  (** If [d] recognizes A_tm and machine d runs <M,w> *)
-  Lemma a_tm_run_reject:
-    forall p,
-    Recognizes p A_tm ->
-    forall w M,
-    Run p <[ M, w ]> Reject -> 
-    ~ Run M w Accept.
-  Proof.
-    unfold A_tm.
-    intros.
-    intros N.
-    apply recognizes_run_reject with (L:=A_tm) in H0; auto.
-    unfold A_tm in H0.
-    run_simpl_all.
-    contradiction.
-  Qed.
-
-  Lemma a_tm_run_loop:
-    forall d,
-    Recognizes d A_tm ->
-    forall w m,
-    Run d <[ m, w ]> Loop -> 
-    ~ Run m w Accept.
-  Proof.
-    intros.
-    intros N; subst.
-    apply recognizes_run_loop with (L:=A_tm) in H0; auto.
-    unfold A_tm in H0.
-    rewrite decode_encode_prog_input_rw in *.
-    contradiction.
-  Qed.
-
-  Lemma a_tm_run_accept:
-    forall d,
-    Recognizes d A_tm ->
-    forall w m,
-    Run d <[ m, w ]> Accept -> 
-    Run m w Accept.
-  Proof.
-    intros.
-    apply recognizes_run_accept with (L:=A_tm) in H0; auto.
-    unfold A_tm in *.
-    run_simpl_all.
-    assumption.
-  Qed.
-
   (**
     This new TM calls D to determine what M does when the input to M is its own
     description <M, <M>>. Once D has determined this information, it does the
