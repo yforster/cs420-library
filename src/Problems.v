@@ -495,7 +495,6 @@ Section EQ_TM.
       - unfold A_tm.
         destruct (decode_prog_input w) as (M, x) eqn:Heq.
         run_simpl_all.
-        unfold Equiv, Lang in *.
         assert (Ha: Run ACCEPT w Accept). {
           apply run_ret.
         }

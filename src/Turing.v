@@ -291,11 +291,6 @@ Require Import Coq.Logic.Classical_Prop.
 
   Notation "A ≡ B" := (Equiv A B) (at level 80, right associativity).
 
-  (** We use capital language to represent the recognized langauge of a machine.
-      This corresponds to notation L(M). *)
-
-  Definition Lang (p:Prog) : lang := fun i => Run p i Accept.
-
   (** We use a direct definition of recognition:
       The turing machine accepts input i (with `run m i`)
       iff language L accepts i.
@@ -315,26 +310,6 @@ Require Import Coq.Logic.Classical_Prop.
     intros; split; auto.
   Qed.
 
-  Lemma recognizes_to_equiv:
-    forall m L,
-    Recognizes m L ->
-    Equiv (Lang m) L.
-  Proof.
-    intros.
-    unfold Recognizes, Equiv, Lang in *.
-    assumption.
-  Qed.
-
-  Lemma equiv_to_lang:
-    forall m L,
-    Equiv (Lang m) L ->
-    Recognizes m L.
-  Proof.
-    intros.
-    unfold Recognizes, Equiv, Lang in *.
-    assumption.
-  Qed.
-
   Lemma recognizes_impl:
     forall m L1 L2,
     Equiv L1 L2 ->
@@ -346,14 +321,6 @@ Require Import Coq.Logic.Classical_Prop.
     intros.
     rewrite H0.
     apply H.
-  Qed.
-
-  Lemma recognizes_iff_lang:
-    forall m L,
-    Equiv (Lang m) L <-> Recognizes m L.
-  Proof.
-    unfold Recognizes, Equiv, Lang in *.
-    intuition.
   Qed.
 
   Lemma equiv_symm:
