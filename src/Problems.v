@@ -124,11 +124,12 @@ Section A_TM. (* ----------------------------------------------- *)
       apply decider_no_loop in H5; auto.
   Qed.
 
-  Lemma no_decides_a_tm:
-    ~ exists m, Decides m A_tm.
+
+  (** Theorem 4.11, pp 207 *)
+
+  Theorem a_tm_undecidable:
+    ~ Decidable A_tm.
   Proof.
-    unfold not.
-    (* We assume that A_TM is decidable and obtain a contradiction. *)
     intros N.
     (* Suppose that D is a decider for A_TM. *)
     destruct N as (D, is_dec).
@@ -152,21 +153,6 @@ Section A_TM. (* ----------------------------------------------- *)
       unfold A_tm in *.
       run_simpl_all.
     - apply negator_loop in Hx; auto.
-  Qed.
-
-  (** Theorem 4.11, pp 207 *)
-
-  Theorem a_tm_undecidable:
-    ~ Decidable A_tm.
-  Proof.
-    intros N.
-    destruct N as (m, N).
-    assert (Hx: exists m, Decides m A_tm). {
-      exists m.
-      assumption.
-    }
-    apply no_decides_a_tm in Hx.
-    assumption.
   Qed.
 
   (* -------------------------------------------------------------------------- *)
