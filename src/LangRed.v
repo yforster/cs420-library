@@ -152,7 +152,7 @@ Require Import Turing.LangDec.
       Decidable A.
     Proof.
       intros A B (f, Hred) (M, (Hr, Hd)).
-      apply decidable_def with (m:=Read (fun w => With (f w) M)).
+      apply decidable_def with (m:=Read (fun w => Call M (f w))).
       split.
       - unfold Recognizes.
         split; intros. {
@@ -183,7 +183,7 @@ Require Import Turing.LangDec.
       unfold Recognizes in *.
       destruct Hred as (f, Hr).
       destruct Ha as (M, Ha).
-      apply recognizable_def with (m:= Read (fun w => With (f w) M )).
+      apply recognizable_def with (m:= Read (fun w => Call M (f w) )).
       unfold Recognizes.
       split; intros. {
         run_simpl_all.

@@ -75,9 +75,9 @@ Section A_TM. (* ----------------------------------------------- *)
             and if D rejects, accept.”
   *)
 
-  Definition negator D :=
+  Definition negator solve_A :=
     Read (fun w =>
-      mlet b <- With <[ decode_prog w, w ]> D in
+      mlet b <- Call solve_A <[ decode_prog w, w ]> in
       if b then REJECT
       else ACCEPT
     ).
@@ -132,12 +132,12 @@ Section A_TM. (* ----------------------------------------------- *)
   Proof.
     intros N.
     (* Suppose that D is a decider for A_TM. *)
-    destruct N as (D, is_dec).
+    destruct N as (solve_A, is_dec).
     destruct is_dec as (Hrec, Hdec).
     (* Now we construct a new Turing machine [negator] with D as a subroutine. *)
     (* What happens when we run [negator] with its own description <negator> as
       input? *)
-    destruct (run_exists (negator D) [[negator D]] ) as (r, He).
+    destruct (run_exists (negator solve_A) [[negator solve_A]] ) as (r, He).
     assert (Hx := He).
     (* (Let us duplicate Heqr as we will need it later.) *)
     destruct r; subst.
@@ -161,10 +161,8 @@ Section A_TM. (* ----------------------------------------------- *)
   Proof.
     apply recognizable_def with (m:=Read (fun p => 
       let (M, w) := decode_prog_input p in
-      (* Set the input to be w *)
-      With w
-      (* Continue with M *)
-      M
+      (* Calls program M with input w *)
+      Call M w
       )
     ).
     unfold Recognizes, A_tm.
@@ -174,7 +172,7 @@ Section A_TM. (* ----------------------------------------------- *)
     (* remove the pair *)
     destruct (decode_prog_input i) as (p, j).
     (* remove the with from lhs *)
-    rewrite run_with_rw.
+    rewrite run_call_rw.
     reflexivity.
   Qed.
 
@@ -345,7 +343,7 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
       apply decidable_def with (m:=Read (fun p =>
         let (M, w) := decode_prog_input p in
         mlet b <- solves_HALT in
-        if b then With w M else REJECT 
+        if b then Call M w else REJECT 
       )).
       apply decides_def. {
         unfold A_tm.
@@ -402,12 +400,11 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
     apply decidable_def with (m:=
       Read (fun p =>
         let (M, w) := decode_prog_input p in
-        mlet b <- With [[ Read (fun x =>
+        mlet b <- Call solve_E [[ Read (fun x =>
           if input_eq_dec x w then (
-            With w
-            M
+            Call M w
           ) else REJECT
-        ) ]] solve_E in
+        ) ]] in
         halt_with (negb b)
     )).
     apply decides_def. {
@@ -469,7 +466,7 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
       destruct decides_to_run_dec with (i:=[[
         Read (fun x =>
           if input_eq_dec x j then
-          With j p else REJECT)
+          Call p j else REJECT)
         ]])
         (p:=solve_E) (L:=E_tm) as (r, (b, (Ha, Hb))); auto. 
       eapply halts_seq; eauto using halts_halt_with.
@@ -497,7 +494,7 @@ Section EQ_TM.
       apply reducible_iff with (f:=fun p =>
         let (M, w) := decode_prog_input p in
         let M1 : input := [[ REJECT ]] in
-        let M2 : input := [[ With w M ]] in
+        let M2 : input := [[ Call M w ]] in
         encode_pair (M1 , M2)
       ).
       unfold EQ_tm; split; intros.
@@ -511,7 +508,7 @@ Section EQ_TM.
       - destruct (decode_prog_input w) as (M, x) eqn:Heq.
         run_simpl_all.
         intros N.
-        assert (Hm: Run (With x M) w Accept). {
+        assert (Hm: Run (Call M x) w Accept). {
           unfold A_tm in *.
           rewrite Heq in *.
           constructor.
@@ -529,7 +526,7 @@ Section EQ_TM.
       apply reducible_iff with (f:=fun p =>
         let (M, w) := decode_prog_input p in
         let M1 : input := [[ ACCEPT ]] in
-        let M2 : input := [[ With w M ]] in
+        let M2 : input := [[ Call M w ]] in
         encode_pair (M1 , M2)
       ).
       unfold EQ_tm; split; intros.

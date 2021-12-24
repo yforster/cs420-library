@@ -60,7 +60,7 @@ Require Import Coq.Logic.Classical_Prop.
 
   Inductive Prog :=
   | Read: (input -> Prog) -> Prog
-  | With: input -> Prog -> Prog
+  | Call: Prog -> input -> Prog
     (**
      `Seq p1 f`: run p1, if p1 terminates, then
      run (f r) where `r` is a boolean that states if p1
@@ -118,15 +118,15 @@ Require Import Coq.Logic.Classical_Prop.
     forall p i r,
     Run (p i) i r ->
     Run (Read p) i r
-  | run_with:
+  | run_call:
     forall p i j r,
     Run p i r ->
-    Run (With i p) j r 
+    Run (Call p i) j r 
   | run_ret:
     (** We can directly return a result *)
     forall r i,
     Run (Ret r) i r
-  | run_call:
+  | run_tur:
     (** Calling a machine is the same as using function `run`. *)
     forall m i r,
     Exec m i r ->
@@ -448,9 +448,9 @@ Require Import Coq.Logic.Classical_Prop.
     - constructor; assumption.
   Qed.
 
-  Lemma run_with_rw:
+  Lemma run_call_rw:
     forall p i j r,
-    Run (With j p) i r <-> Run p j r.
+    Run (Call p j) i r <-> Run p j r.
   Proof.
     split; intros.
     - inversion H; subst; auto.
@@ -1020,7 +1020,7 @@ Require Import Coq.Logic.Classical_Prop.
   End Decidable.
 
   Definition halt_with (b:bool) := Ret (if b then Accept else Reject).
-
+  (* XXX: remove me *)
   Definition Empty : lang := fun p => False.
   Definition IsEmpty M := Recognizes M Empty.
   Definition NeverAccept M := (forall (i:input), ~ Run M i Accept).
@@ -1207,10 +1207,10 @@ Require Import Coq.Logic.Classical_Prop.
       forall p i,
       Halts (p i) i ->
       Halts (Read p) i
-    | halts_with:
+    | halts_call:
       forall p i j,
       Halts p j ->
-      Halts (With j p) i
+      Halts (Call p j) i
     | halts_ret_accept:
       forall i,
       Halts (Ret Accept) i
@@ -1504,7 +1504,7 @@ Require Import Coq.Logic.Classical_Prop.
   match goal with
   | [ H: _ |- _ ] =>
     match type of H with
-      | Run (With _ _) _ _ => idtac
+      | Run (Call _ _) _ _ => idtac
       | Run (Read _) _ _ => idtac
       | Run (Tur _) _ _ => idtac
       | Run (Ret _) _ _ => idtac
