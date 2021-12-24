@@ -412,84 +412,82 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
   Proof.
     intros HD.
     destruct HD as (solve_E, H).
-    assert (Hx: Decidable A_tm). {
-      apply decidable_def with (m:=
-        Read (fun p =>
-          let (M, w) := decode_prog_input p in
-          mlet b <- With [[ Read (fun x =>
-            if input_eq_dec x w then (
-              With w
-              M
-            ) else REJECT
-          ) ]] solve_E in
-          halt_with (negb b)
-      )).
-      apply decides_def. {
-        split; intros Hi. {
-          (* Run implies in A_tm *)
-          unfold A_tm.
-          rewrite run_read_rw in *.
-          destruct (decode_prog_input i) as (p, j) eqn:r1.
-          inversion Hi; subst; clear Hi.
+    apply a_tm_undecidable.
+    apply decidable_def with (m:=
+      Read (fun p =>
+        let (M, w) := decode_prog_input p in
+        mlet b <- With [[ Read (fun x =>
+          if input_eq_dec x w then (
+            With w
+            M
+          ) else REJECT
+        ) ]] solve_E in
+        halt_with (negb b)
+    )).
+    apply decides_def. {
+      split; intros Hi. {
+        (* Run implies in A_tm *)
+        unfold A_tm.
+        rewrite run_read_rw in *.
+        destruct (decode_prog_input i) as (p, j) eqn:r1.
+        inversion Hi; subst; clear Hi.
+        run_simpl_all.
+        eapply decides_run_reject in H5; eauto.
+        destruct (run_exists p j) as (r, Heqr).
+        destruct r; auto.
+        - contradict H5.
+          unfold E_tm.
+          intros k.
           run_simpl_all.
-          eapply decides_run_reject in H5; eauto.
-          destruct (run_exists p j) as (r, Heqr).
-          destruct r; auto.
-          - contradict H5.
-            unfold E_tm.
-            intros k.
-            run_simpl_all.
-            repeat rewrite run_read_rw.
-            left.
-            destruct (input_eq_dec k j). {
-              subst.
-              constructor; auto.
-            }
-            constructor.
-          - contradict H5.
-            intros k.
-            run_simpl_all.
-            repeat rewrite run_read_rw.
-            destruct (input_eq_dec k j). {
-              subst.
-              right.
-              constructor; auto.
-            }
-            left.
-            constructor.
-          }
-          (* From A_tm show that it accepts. *)
-          rewrite run_read_rw.
-          unfold A_tm in *.
-          destruct (decode_prog_input i) as (p, j).
-          eapply run_seq_cont; eauto using dec_reject. {
-            constructor.
-            eapply decides_reject; eauto.
-            intros He.
-            assert (He := He j).
-            run_simpl_all.
-            repeat rewrite run_read_rw in *.
-            destruct (input_eq_dec j j); try contradiction.
-            (* Run with different results is a contradiction *)
-            intuition; run_simpl_all.
+          repeat rewrite run_read_rw.
+          left.
+          destruct (input_eq_dec k j). {
+            subst.
+            constructor; auto.
           }
           constructor.
+        - contradict H5.
+          intros k.
+          run_simpl_all.
+          repeat rewrite run_read_rw.
+          destruct (input_eq_dec k j). {
+            subst.
+            right.
+            constructor; auto.
+          }
+          left.
+          constructor.
         }
-        apply halts_to_decider.
-        intros i.
+        (* From A_tm show that it accepts. *)
+        rewrite run_read_rw.
+        unfold A_tm in *.
+        destruct (decode_prog_input i) as (p, j).
+        eapply run_seq_cont; eauto using dec_reject. {
+          constructor.
+          eapply decides_reject; eauto.
+          intros He.
+          assert (He := He j).
+          run_simpl_all.
+          repeat rewrite run_read_rw in *.
+          destruct (input_eq_dec j j); try contradiction.
+          (* Run with different results is a contradiction *)
+          intuition; run_simpl_all.
+        }
         constructor.
-        destruct (decode_prog_input i) as (p, j) eqn:r1.
-        destruct decides_to_run_dec with (i:=[[
-          Read (fun x =>
-            if input_eq_dec x j then
-            With j p else REJECT)
-          ]])
-          (p:=solve_E) (L:=E_tm) as (r, (b, (Ha, Hb))); auto. 
-        eapply halts_seq; eauto using halts_halt_with.
-        constructor.
-        assumption.
       }
-      apply a_tm_undecidable in Hx.
+      (* Prove that it halts *)
+      apply halts_to_decider.
+      intros i.
+      constructor.
+      destruct (decode_prog_input i) as (p, j) eqn:r1.
+      destruct decides_to_run_dec with (i:=[[
+        Read (fun x =>
+          if input_eq_dec x j then
+          With j p else REJECT)
+        ]])
+        (p:=solve_E) (L:=E_tm) as (r, (b, (Ha, Hb))); auto. 
+      eapply halts_seq; eauto using halts_halt_with.
+      constructor.
       assumption.
   Qed.
 
