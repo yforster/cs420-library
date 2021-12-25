@@ -14,7 +14,7 @@ Section A_TM. (* ----------------------------------------------- *)
 
   Definition A_tm : lang := fun p =>
     let (M, w) := decode_prog_input p in
-    Run M w Accept.
+    Run M w (Halt true).
 
   (**
     This new TM calls D to determine what M does when the input to M is its own
@@ -38,29 +38,32 @@ Section A_TM. (* ----------------------------------------------- *)
 
   Lemma negator_accept:
     forall D,
-    Run (negator D) [[negator D]] Accept ->
-    Run D <[ negator D, [[negator D]] ]> Reject.
+    Run (negator D) [[negator D]] (Halt true) ->
+    Run D <[ negator D, [[negator D]] ]> (Halt false).
   Proof.
     unfold negator.
     intros.
     run_simpl_all.
     inversion H1; subst; clear H1.
-    inversion H3; subst; clear H3;
+    inversion H2; subst; clear H2;
     run_simpl_all.
-    assumption.
+    destruct b; auto.
+    run_simpl_all.
   Qed.
 
   Lemma negator_reject:
     forall D,
-    Run (negator D) [[negator D]] Reject ->
-    Run D <[ negator D, [[negator D]] ]> Accept.
+    Run (negator D) [[negator D]] (Halt false) ->
+    Run D <[ negator D, [[negator D]] ]> (Halt true).
   Proof.
     unfold negator.
     intros.
     run_simpl_all.
-    inversion H1; subst; clear H1;
-    inversion H3; subst; clear H3;
-    run_simpl_all; auto.
+    inversion H1; subst; clear H1.
+    rewrite run_call_rw in *.
+    run_simpl_all.
+    destruct b; run_simpl_all.
+    auto.
   Qed.
 
   Lemma negator_loop:
@@ -73,7 +76,8 @@ Section A_TM. (* ----------------------------------------------- *)
     intros N.
     run_simpl_all.
     inversion H1; subst; clear H1.
-    - inversion H4; subst; run_simpl_all.
+    - inversion H3; subst; run_simpl_all.
+      destruct b; run_simpl_all.
     - run_simpl_all.
       apply decider_no_loop in H5; auto.
   Qed.
@@ -94,7 +98,7 @@ Section A_TM. (* ----------------------------------------------- *)
     destruct (run_exists (negator solve_A) [[negator solve_A]] ) as (r, He).
     assert (Hx := He).
     (* (Let us duplicate Heqr as we will need it later.) *)
-    destruct r; subst.
+    destruct r as [ [] | ]; subst.
     - apply negator_accept in He.
       eapply recognizes_run_reject in He; eauto.
       contradict He.
@@ -161,7 +165,7 @@ Section A_TM. (* ----------------------------------------------- *)
   (* Define the language of programs that accept their own code. *)
 
   Definition SELF_tm := fun i =>
-    Run (decode_prog i) i Accept.
+    Run (decode_prog i) i (Halt true).
 
   (* 1. Show that the complement of SELF is unrecognizable.
   
@@ -191,7 +195,7 @@ Section A_TM. (* ----------------------------------------------- *)
     (* By contradiction, assume that p recognizes co-SELF_TM *)
     destruct (run_exists p (encode_prog p)) as (r, He).
     assert (Hx := He). (* Let us duplicate assumption Hx *)
-    destruct r.
+    destruct r as [ [] | ].
     - (* If p accepts itself *)
       eapply recognizes_run_accept in He; eauto.
       (* That means that p is in co-SELF *)
@@ -305,18 +309,17 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
           rewrite run_read_rw in *.
           destruct (decode_prog_input i) as (p, j) eqn:r1.
           inversion Ha; subst; clear Ha.
-          inversion H3; subst; clear H3; run_simpl_all.
+          destruct b; run_simpl_all.
           assumption.
         }
         rewrite run_read_rw in *.
         destruct (decode_prog_input i) as (p, j) eqn:r1.
-        eapply run_seq_cont; eauto using dec_accept. {
+        apply run_seq_cont with (b:=true). {
           apply decides_accept with (L:=HALT_tm); auto.
           unfold HALT_tm.
           rewrite r1.
-          auto using halts_accept.
+          eauto using run_to_halts.
         }
-        simpl.
         constructor.
         assumption.
       }
@@ -324,13 +327,14 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
       intros.
       constructor.
       destruct (decode_prog_input i) as (p, j) eqn:r1.
-      destruct decides_to_run_dec with (p:=solves_HALT) (L:=HALT_tm) (i:=i)
-        as (r, (b, (Hr, Hd))); auto.
+      destruct decides_to_run with (p:=solves_HALT) (L:=HALT_tm) (i:=i)
+        as (b, Hr); auto.
       eapply halts_seq; eauto.
-      inversion Hd; subst; constructor.
-      eapply decides_run_accept in Hr; eauto.
+      destruct b; auto using halts_ret.
+      apply decides_run_accept with (L:=HALT_tm) in Hr; eauto.
       unfold HALT_tm in *.
       rewrite r1 in *.
+      constructor.
       assumption.
     }
     apply a_tm_undecidable in Hx.
@@ -343,7 +347,7 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
 
   Definition E_tm : lang := fun p =>
     let M := decode_prog p in
-    (forall i, Run M i Reject \/ Run M i Loop).
+    (forall i, Run M i (Halt false) \/ Run M i Loop).
 
   Theorem E_tm_undecidable:
     ~ Decidable E_tm.
@@ -359,7 +363,7 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
             Call M w
           ) else REJECT
         ) ]] in
-        halt_with (negb b)
+        if b then REJECT else ACCEPT
     )).
     apply decides_def. {
       split; intros Hi. {
@@ -369,37 +373,26 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
         destruct (decode_prog_input i) as (p, j) eqn:r1.
         inversion Hi; subst; clear Hi.
         run_simpl_all.
-        eapply decides_run_reject in H5; eauto.
+        destruct b; run_simpl_all.
+        eapply decides_run_reject in H6; eauto.
         destruct (run_exists p j) as (r, Heqr).
-        destruct r; auto.
-        - contradict H5.
-          unfold E_tm.
-          intros k.
-          run_simpl_all.
-          repeat rewrite run_read_rw.
-          left.
-          destruct (input_eq_dec k j). {
-            subst.
-            constructor; auto.
-          }
-          constructor.
-        - contradict H5.
-          intros k.
-          run_simpl_all.
-          repeat rewrite run_read_rw.
-          destruct (input_eq_dec k j). {
-            subst.
-            right.
-            constructor; auto.
-          }
-          left.
-          constructor.
+        destruct r as [ [] | ]; auto;
+          contradict H6;
+          unfold E_tm;
+          intros k;
+          run_simpl_all;
+          repeat rewrite run_read_rw;
+          destruct (input_eq_dec k j); subst.
+          - left; constructor; auto.
+          - left; constructor.
+          - right; constructor; auto.
+          - left; constructor.
         }
         (* From A_tm show that it accepts. *)
         rewrite run_read_rw.
         unfold A_tm in *.
         destruct (decode_prog_input i) as (p, j).
-        eapply run_seq_cont; eauto using dec_reject. {
+        eapply run_seq_cont; eauto. {
           constructor.
           eapply decides_reject; eauto.
           intros He.
@@ -417,15 +410,17 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
       intros i.
       constructor.
       destruct (decode_prog_input i) as (p, j) eqn:r1.
-      destruct decides_to_run_dec with (i:=[[
+      destruct decides_to_run with (i:=[[
         Read (fun x =>
           if input_eq_dec x j then
           Call p j else REJECT)
         ]])
-        (p:=solve_E) (L:=E_tm) as (r, (b, (Ha, Hb))); auto. 
-      eapply halts_seq; eauto using halts_halt_with.
-      constructor.
-      assumption.
+        (p:=solve_E) (L:=E_tm) as (b, Ha); auto. 
+      apply halts_seq with (b:=b). {
+        constructor.
+        assumption.
+      }
+      destruct b; constructor.
   Qed.
 
 
@@ -440,7 +435,7 @@ Section EQ_TM.
       let M1 := decode_prog w1 in
       let M2 := decode_prog w2 in
       forall i,
-      Run M1 i Accept <-> Run M2 i Accept.
+      Run M1 i (Halt true) <-> Run M2 i (Halt true).
 
     Lemma co_a_tm_red_eq_tm:
       compl A_tm <=m EQ_tm.
@@ -455,14 +450,14 @@ Section EQ_TM.
       - unfold A_tm, compl in *.
         destruct (decode_prog_input w) as (M, x) eqn:Heq.
         run_simpl_all.
-        destruct (run_exists M x) as ([], Hr).
+        destruct (run_exists M x) as ([ [] |], Hr).
         + contradiction.
         + split; intros; run_simpl_all.
         + split; intros; run_simpl_all.
       - destruct (decode_prog_input w) as (M, x) eqn:Heq.
         run_simpl_all.
         intros N.
-        assert (Hm: Run (Call M x) w Accept). {
+        assert (Hm: Run (Call M x) w (Halt true)). {
           unfold A_tm in *.
           rewrite Heq in *.
           constructor.
@@ -495,7 +490,7 @@ Section EQ_TM.
       - unfold A_tm.
         destruct (decode_prog_input w) as (M, x) eqn:Heq.
         run_simpl_all.
-        assert (Ha: Run ACCEPT w Accept). {
+        assert (Ha: Run ACCEPT w (Halt true)). {
           apply run_ret.
         }
         apply H in Ha.
