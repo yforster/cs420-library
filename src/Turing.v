@@ -49,13 +49,6 @@ Require Import Coq.Logic.Classical_Prop.
   Parameter exec_exists:
     forall m i,
     exists r, Exec m i r.
-  (** When running two programs in parallel, we get to know
-      which of the two programs has terminated and how they
-      terminated. *)
-  Inductive par_result :=
-  | pleft: bool -> par_result
-  | pright: bool -> par_result
-  | pboth: bool -> bool -> par_result.
 
   Inductive Prog :=
   | Read: (input -> Prog) -> Prog
@@ -76,27 +69,7 @@ Require Import Coq.Logic.Classical_Prop.
       any further operation.
       *)
   | Ret: result -> Prog
-    (**
-      `Par p1 p2 f` interleaves the exection of program `p1`
-      and `p2`. If either (or both) terminate, then
-      call `f` with the termination result. 
-     *) 
-  | Par: Prog -> Prog -> (par_result -> Prog) -> Prog.
-
-  Parameter par_choice: Prog -> Prog -> bool -> bool -> par_result. 
-  Inductive ParChoice b1 b2: par_result -> Prop :=
-  | par_choice_left:
-    ParChoice b1 b2 (pleft b1)
-  | par_choice_right:
-    ParChoice b1 b2 (pright b2)
-  | par_choice_both:
-    ParChoice b1 b2 (pboth b1 b2).
-
-  (** The parallel choice must respect the result *)
-  Axiom par_choice_spec:
-    forall p q b1 b2 r,
-    par_choice p q b1 b2 = r ->
-    ParChoice b1 b2 r.
+  .
 
   (**
     These describe the axiomatic semantics of turing machines.
@@ -132,42 +105,11 @@ Require Import Coq.Logic.Classical_Prop.
     (** If `p` loops, then `p; q` also loops. *)
     forall p q i,
     Run p i Loop ->
-    Run (Seq p q) i Loop
-  | run_par_l_seq:
-    (** If `p` terminates and `q` loops, then
-       we run continuation `c` with `cleft b`. *)
-    forall p q c r b i,
-    Run p i (Halt b) ->
-    Run q i Loop ->
-    Run (c (pleft b)) i r ->
-    Run (Par p q c) i r
-  | run_par_r_seq:
-    (** If `p` loops and `q` terminates, then
-       we run continuation `c` with `cright b`. *)
-    forall p q c r b i,
-    Run p i Loop ->
-    Run q i (Halt b) ->
-    Run (c (pright b)) i r ->
-    Run (Par p q c) i r
-  | run_par_both:
-    (** If both `p` and `q` terminate, then
-       we run continuation `c` with `pboth b1 b2`. *)
-    forall p1 p2 c r b1 b2 i,
-    Run p1 i (Halt b1) ->
-    Run p2 i (Halt b2) ->
-    Run (c (par_choice p1 p2 b1 b2)) i r ->
-    Run (Par p1 p2 c) i r
-  | run_par_loop:
-    (** If both `p` and `q` loop, then the whole thing loops. *)
-    forall p q c i,
-    Run p i Loop ->
-    Run q i Loop ->
-    Run (Par p q c) i Loop.
+    Run (Seq p q) i Loop.
 
   (** We define a notation for sequencing. *)
   Notation "'mlet' x <- e 'in' c" := (Seq e (fun x => c)) (at level 60, right associativity).
-  (** We define a notion for parallel sequencing. *)
-  Notation "'plet' x <- e1 '\\' e2 'in' c" := (Par e1 e2 (fun (x:par_result) => c)) (at level 60, right associativity).
+
   (** Notation for ACCEPT means returning Accept *)
   Notation ACCEPT := (Ret (Halt true)).
   (** Notation for LOOP means returning Reject *)
@@ -476,25 +418,6 @@ Require Import Coq.Logic.Classical_Prop.
         assumption.
       - exists r.
         constructor.
-      - assert (IHp1 := IHp1 i).
-        assert (IHp2 := IHp2 i).
-        destruct IHp1 as (r1, Hr1).
-        destruct IHp2 as (r2, Hr2).
-        destruct r1, r2.
-        + assert (H := H (par_choice p1 p2 b b0) i).
-          destruct H as (r, Hr).
-          exists r.
-          eapply run_par_both; eauto.
-        + assert (H := H (pleft b) i).
-          destruct H as (r, Hr).
-          exists r.
-          eapply run_par_l_seq; eauto.
-        + assert (H := H (pright b) i).
-          destruct H as (r, Hr).
-          exists r.
-          eapply run_par_r_seq; eauto.
-        + exists Loop.
-          constructor; auto.
     Qed.
 
     Lemma recognizes_run_reject:
@@ -887,24 +810,7 @@ Require Import Coq.Logic.Classical_Prop.
       Run p i (Halt b) ->
       Halts (q b) i ->
       Halts (mlet x <- p in q x) i
-    | halts_par_l_seq:
-      forall p q i b c,
-      Run p i (Halt b) ->
-      Run q i Loop ->
-      Halts (c (pleft b)) i ->
-      Halts (Par p q c) i
-    | halts_par_r_seq:
-      forall p q i b c,
-      Run p i Loop ->
-      Run q i (Halt b) ->
-      Halts (c (pright b)) i ->
-      Halts (Par p q c) i
-    | halts_par_both:
-      forall p q i b1 b2 c,
-      Run p i (Halt b1) ->
-      Run q i (Halt b2) ->
-      Halts (c (par_choice p q b1 b2)) i ->
-      Halts (Par p q c) i.
+    .
 
     Lemma run_to_halts:
       forall p i b,
@@ -922,10 +828,6 @@ Require Import Coq.Logic.Classical_Prop.
       - econstructor; eauto.
       - econstructor; eauto.
       - inversion Hb.
-      - eapply halts_par_l_seq; eauto.
-      - eapply halts_par_r_seq; eauto.
-      - eapply halts_par_both; eauto.
-      - inversion Hb.
     Qed.
 
     Lemma halts_to_run:
@@ -940,9 +842,6 @@ Require Import Coq.Logic.Classical_Prop.
         try (exists b; constructor; assumption; fail);
         exists b'.
       - eapply run_seq_cont; eauto.
-      - eapply run_par_l_seq; eauto.
-      - eapply run_par_r_seq; eauto.
-      - eapply run_par_both; eauto.
     Qed.
 
     Lemma halts_rw:

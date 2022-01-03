@@ -2,6 +2,60 @@
 Require Import Turing.
 Require Import Coq.Bool.Bool.
 
+
+  (** When running two programs in parallel, we get to know
+    which of the two programs has terminated and how they
+    terminated. *)
+  Inductive par_result :=
+  | pleft: bool -> par_result
+  | pright: bool -> par_result
+  | pboth: bool -> bool -> par_result.
+
+  (**
+    `Par p1 p2 f` interleaves the exection of program `p1`
+    and `p2`. If either (or both) terminate, then
+    call `f` with the termination result. 
+   *)
+  Parameter Par: Prog -> Prog -> (par_result -> Prog) -> Prog.
+
+  Inductive RunPar : Prog -> Prog -> (par_result -> Prog) -> input -> result -> Prop :=
+  | run_par_l:
+    forall p q c r b i,
+    Run p i (Halt b) ->
+    Run q i Loop ->
+    Run (c (pleft b)) i r ->
+    RunPar p q c i r
+  | run_par_r:
+    (** If `p` loops and `q` terminates, then
+       we run continuation `c` with `cright b`. *)
+    forall p q c r b i,
+    Run p i Loop ->
+    Run q i (Halt b) ->
+    Run (c (pright b)) i r ->
+    RunPar p q c i r
+  | run_par_both:
+    (** If both `p` and `q` terminate, then
+       we run continuation `c` with `pboth b1 b2`. *)
+    forall p1 p2 c r b1 b2 i,
+    Run p1 i (Halt b1) ->
+    Run p2 i (Halt b2) ->
+    Run (c (pboth b1 b2)) i r ->
+    RunPar p1 p2 c i r
+  | run_par_loop:
+    (** If both `p` and `q` loop, then the whole thing loops. *)
+    forall p q c i,
+    Run p i Loop ->
+    Run q i Loop ->
+    RunPar p q c i Loop.
+
+  Axiom run_par_rw:
+    forall p q c i r,
+    Run (Par p q c) i r <-> RunPar p q c i r.
+
+  (** We define a notion for parallel sequencing. *)
+  Notation "'plet' x <- e1 '\\' e2 'in' c" := (Par e1 e2 (fun (x:par_result) => c)) (at level 60, right associativity).
+
+
 Section Defs.
 
   (* -------------------------------------------------------------------------- *)
@@ -53,21 +107,6 @@ Section Defs.
       end
     ).
 
-  Lemma run_par_both_eq:
-    forall i p1 p2 (k:par_result -> Prog) b1 b2 r,
-    Run p1 i (Halt b1) ->
-    Run p2 i (Halt b2) ->
-    Run (k (pboth b1 b2)) i r ->
-    Run (k (pleft b1)) i r ->
-    Run (k (pright b2)) i r ->
-    Run (Par p1 p2 k) i r.
-  Proof.
-    intros.
-    apply run_par_both with (b1:=b1) (b2:=b2); auto.
-    destruct (par_choice _ _ _ _) eqn:Hp; apply par_choice_spec in Hp;
-    inversion Hp; subst; clear Hp; auto.
-  Qed.
-
   Inductive DisjointResults: result -> result -> Prop :=
   | disjoint_accept_loop:
     DisjointResults (Halt true) Loop
@@ -87,6 +126,7 @@ Section Defs.
     intros m1 m2 Hr; intros.
     unfold Recognizes; intros.
     rewrite run_read_rw.
+    rewrite run_par_rw in *.
     split; intros.
     + (* Show that whenever the implementation accepts, then the language
          accepts. We do this by thinking about the execution top to bottom:
@@ -113,27 +153,17 @@ Section Defs.
            Thus, we use Hr to reach a contradiction. *)
         assert (Hd: DisjointResults Loop (Halt false)) by eauto.
         inversion Hd.
-      * (* Case par_r_both: both machines terminated at the same time *)
-        (* since we have a match stuck on par_choice, we perform a case analysis
-           on its output. *)
-        destruct (par_choice _ _ _ _) eqn:Hp; 
-        apply par_choice_spec in Hp; inversion Hp; subst; clear Hp;
-        destruct b; run_simpl_all; try assumption.
-        destruct b1.
-        - (* m1 accepts and m2 rejects *)
-          assumption.
-        - (* m1 rejects and m2 rejects *)
-          (* Absurd, because both machines cannot reject. *)
-          assert (Hd: DisjointResults (Halt false) (Halt false)) by eauto.
-          inversion Hd.
+      * (* Both machines terminated at the same time *)
+        destruct b1; run_simpl_all.
+        assumption.
     + destruct (run_exists m2 i) as (r, He).
       destruct r as [ [] |].
       * (* Absurd case: both cannot accept *)
         assert (N: DisjointResults (Halt true) (Halt true)) by eauto.
         inversion N.
-      * apply run_par_both_eq with (b1:=true) (b2:=false);
+      * apply run_par_both with (b1:=true) (b2:=false);
         auto using run_ret.
-      * eapply run_par_l_seq; eauto.
+      * eapply run_par_l; eauto.
         constructor.
   Qed.
 
@@ -152,22 +182,19 @@ Section Defs.
     repeat rewrite run_read_rw in *.
     destruct r as [ [] | ].
     - left; split; auto.
+      rewrite run_par_rw in *.
       inversion He; subst; clear He.
       + destruct b; run_simpl_all.
         assumption.
       + destruct b; run_simpl_all.
         assert (N: DisjointResults Loop (Halt false)) by eauto.
         inversion N.
-      + destruct (par_choice _ _ _ _) eqn:Hp;
-        apply par_choice_spec in Hp;
-        inversion Hp; subst; clear Hp;
-        destruct b; run_simpl_all; auto.
-        destruct b1; auto.
-        assert (N: DisjointResults (Halt false) (Halt false)) by eauto.
-        inversion N.
+      + destruct b1; run_simpl_all.
+        assumption.
     - right.
       left.
       split; auto.
+      rewrite run_par_rw in *.
       inversion He; subst; clear He.
       + destruct b; run_simpl_all.
         auto.
@@ -175,22 +202,15 @@ Section Defs.
         right.
         intros N.
         run_simpl_all.
-      + destruct (par_choice _ _ _ _) eqn:Hp;
-        apply par_choice_spec in Hp;
-        inversion Hp; subst; clear Hp;
-        destruct b; run_simpl_all; auto.
-        right.
-        intros N.
-        run_simpl_all.
+      + destruct b1; run_simpl_all; auto.
     - right.
       right.
       split; auto.
+      rewrite run_par_rw in *.
       inversion He; subst; clear He;
       try (destruct b; run_simpl_all; auto); auto.
-      destruct (par_choice _ _ _ _) eqn:Hp;
-      apply par_choice_spec in Hp;
-      inversion Hp; subst; clear Hp;
-      destruct b; run_simpl_all; auto.
+      (* Impossible case, since Run (if b1 then ACCEPT else REJECT) i Loop *)
+      destruct b1; run_simpl_all.
   Qed.
 
   Lemma par_run_exists:
