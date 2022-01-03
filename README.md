@@ -20,7 +20,7 @@ to access the teaching material.
 * Step 1. Install [scoop](https://scoop.sh/)
 * Step 2. Open powershell and run:
 ```
-> scoop install https://gitlab.com/cogumbreiro/turing/-/raw/master/scoop/turing.json
+> scoop install https://gitlab.com/umb-svl/turing/-/raw/master/scoop/turing.json
 ```
 
 ## Unix-based OS
@@ -28,7 +28,7 @@ to access the teaching material.
 
 To install the Turing library in your system run these commands:
 ```bash
-$ git clone https://gitlab.com/cogumbreiro/turing
+$ git clone https://gitlab.com/umb-svl/turing
 $ cd turing
 $ ./configure.sh
 $ make
