@@ -166,11 +166,11 @@ Require Import Turing.LangDec.
         apply Hr.
         apply Hred.
         assumption.
-      - apply halts_to_decider.
+      - apply decider_def.
         intros.
-        constructor.
-        constructor.
-        auto using decider_to_halts.
+        rewrite halt_read_rw.
+        rewrite halt_call_rw.
+        auto using decider_to_halt.
     Qed.
 
     Theorem reducible_recognizable: (*------------ Theorem 5.28 ------------- *)

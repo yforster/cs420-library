@@ -18,42 +18,37 @@ Require Import Coq.Bool.Bool.
    *)
   Parameter Par: Prog -> Prog -> (par_result -> Prog) -> Prog.
 
-  Inductive RunPar : Prog -> Prog -> (par_result -> Prog) -> input -> result -> Prop :=
+  (** We define a notion for parallel sequencing. *)
+  Notation "'plet' x <- e1 '\\' e2 'in' c" := (Par e1 e2 (fun (x:par_result) => c)) (at level 60, right associativity).
+
+  Inductive RunPar : Prog -> Prog -> (par_result -> Prog) -> input -> bool -> Prop :=
   | run_par_l:
     forall p q c r b i,
-    Run p i (Halt b) ->
-    Run q i Loop ->
+    Run p i b ->
+    Loop q i ->
     Run (c (pleft b)) i r ->
     RunPar p q c i r
   | run_par_r:
     (** If `p` loops and `q` terminates, then
        we run continuation `c` with `cright b`. *)
     forall p q c r b i,
-    Run p i Loop ->
-    Run q i (Halt b) ->
+    Loop p i ->
+    Run q i b ->
     Run (c (pright b)) i r ->
     RunPar p q c i r
   | run_par_both:
     (** If both `p` and `q` terminate, then
        we run continuation `c` with `pboth b1 b2`. *)
     forall p1 p2 c r b1 b2 i,
-    Run p1 i (Halt b1) ->
-    Run p2 i (Halt b2) ->
+    Run p1 i b1 ->
+    Run p2 i b2 ->
     Run (c (pboth b1 b2)) i r ->
     RunPar p1 p2 c i r
-  | run_par_loop:
-    (** If both `p` and `q` loop, then the whole thing loops. *)
-    forall p q c i,
-    Run p i Loop ->
-    Run q i Loop ->
-    RunPar p q c i Loop.
+  .
 
   Axiom run_par_rw:
-    forall p q c i r,
-    Run (Par p q c) i r <-> RunPar p q c i r.
-
-  (** We define a notion for parallel sequencing. *)
-  Notation "'plet' x <- e1 '\\' e2 'in' c" := (Par e1 e2 (fun (x:par_result) => c)) (at level 60, right associativity).
+    forall p q c i b,
+    Run (Par p q c) i b <-> RunPar p q c i b.
 
 
 Section Defs.
@@ -67,68 +62,99 @@ Section Defs.
   Proof.
     intros.
     destruct H as (m, H).
-    apply decidable_def with (m:=mlet b <- m in Ret (Halt (negb b))).
+    apply decidable_def with (m:=mlet b <- m in Ret (negb b)).
     apply decides_def.
     - unfold compl.
       split; intros. {
         intros N.
-        assert (Run m i (Halt true)) by eauto using decides_accept.
+        assert (Run m i true) by eauto using decides_accept.
         inversion H0; subst; clear H0.
         run_simpl_all.
       }
-      assert (Run m i (Halt false)) by eauto using decides_reject.
-      eapply run_seq_cont; eauto.
+      assert (Run m i false) by eauto using decides_reject.
+      eapply run_seq; eauto.
       constructor.
-    - apply halts_to_decider.
+    - apply decider_def.
       intros.
-      destruct decides_to_run with (p:=m) (L:=L) (i:=i) as (b, Hr); auto.
-      apply halts_seq with (b:=b); auto.
+      assert (Ha: Halt m i) by eauto using decides_to_halt.
+      rewrite halt_rw in Ha.
+      destruct Ha as (b, Ha).
+      econstructor; eauto.
       constructor.
   Qed.
 
   Definition par_run (m1 m2:Prog) p :=
     forall i,
       (
-        Run p i (Halt true) /\ Run m1 i (Halt true)
+        Run p i true /\ Run m1 i true
       ) \/ (
-        Run p i (Halt false) /\ (Run m1 i (Halt false) \/ ~ Run m2 i Loop)
+        Run p i false /\ (Run m1 i false \/ Halt m2 i)
       ) \/ (
-        Run p i Loop /\ Run m1 i Loop /\ Run m2 i Loop
+        Loop p i /\ Loop m1 i /\ Loop m2 i
       ).
 
   Definition par_mach M1 M2 : Prog :=
     Read (fun w =>
       plet b <- M1 \\ M2 in
-      match b with
+      Ret (match b with
       | pleft true
-      | pboth true _ => ACCEPT
-      | pright false => ACCEPT
-      | _ => REJECT
-      end
+      | pboth true _
+      | pright false => true
+      | _ => false
+      end)
     ).
 
-  Inductive DisjointResults: result -> result -> Prop :=
-  | disjoint_accept_loop:
-    DisjointResults (Halt true) Loop
-  | disjoint_accept_reject:
-    DisjointResults (Halt true) (Halt false)
-  | disjoint_loop_accept:
-    DisjointResults Loop (Halt true)
-  | disjoint_reject_accept:
-    DisjointResults (Halt false) (Halt true).
+  Definition Disjoint p1 p2 i : Prop :=
+    (Run p1 i true /\ Negative p2 i)
+    \/
+    (Negative p1 i /\ Run p2 i true).
+
+  Lemma disjoint_run_true_1_rw:
+    forall p1 p2 i,
+    Disjoint p1 p2 i ->
+    Negative p2 i <-> Run p1 i true.
+  Proof.
+    intros.
+    split; intros. {
+      destruct H as [(Ha,Hb)|(Ha,Hb)]. {
+        assumption.
+      }
+      (* Contradiction: run p2 and neg p2 *)
+      run_simpl_all.
+    }
+    destruct H; intuition.
+    (* Contradiction: neg p1 and run p1 *)
+    run_simpl_all.
+  Qed.
+
+  Lemma disjoint_run_true_2_rw:
+    forall p1 p2 i,
+    Disjoint p1 p2 i ->
+    Negative p1 i <-> Run p2 i true.
+  Proof.
+    intros.
+    split; intros. {
+      destruct H; intuition.
+      (* Contradiction: run p1 and neg p1 *)
+      run_simpl_all.
+    }
+    destruct H as [(Ha,Hb)|(Ha,Hb)]; intuition.
+    (* We have reached a contradiction. p2 true and p2 neg *) 
+    run_simpl_all.
+  Qed.
 
   Lemma par_mach_lang:
     forall m1 m2,
-    (forall i r1 r2, Run m1 i r1 -> Run m2 i r2 -> DisjointResults r1 r2) ->
-    Recognizes (par_mach m1 m2) (fun i => Run m1 i (Halt true)).
+    (forall i, Disjoint m1 m2 i) ->
+    Recognizes (par_mach m1 m2) (fun i => Run m1 i true).
   Proof.
     unfold par_mach.
     intros m1 m2 Hr; intros.
     unfold Recognizes; intros.
     rewrite run_read_rw.
     rewrite run_par_rw in *.
-    split; intros.
-    + (* Show that whenever the implementation accepts, then the language
+    split; intros. {
+      (* Show that whenever the implementation accepts, then the language
          accepts. We do this by thinking about the execution top to bottom:
          how did reached Accept?
          *)
@@ -141,35 +167,54 @@ Section Defs.
           We perform a case analysis on b to figure out what was handled.
         *)
         destruct b; run_simpl_all.
-        (* Notice that m1 accepted, thus i is in L *)
-        assumption. (* Definition of Lang *) 
+        assumption.
       * (* Case par_r_seq: m2 terminated *)
         (* If m2 terminates, then we have:
           Run (if b then REJECT else ACCEPT) Accept
           We perform a case analysis on b to figure out what was handled.
         *)
         destruct b; run_simpl_all.
-        (* Our assumption Hr is saying that m1 and m2 cannot both reject.
-           Thus, we use Hr to reach a contradiction. *)
-        assert (Hd: DisjointResults Loop (Halt false)) by eauto.
-        inversion Hd.
+        assert (Ha: Negative m1 i). { auto using negative_loop. }
+        rewrite (disjoint_run_true_2_rw _ _ _ (Hr i)) in *.
+        run_simpl_all.
       * (* Both machines terminated at the same time *)
         destruct b1; run_simpl_all.
         assumption.
-    + destruct (run_exists m2 i) as (r, He).
-      destruct r as [ [] |].
-      * (* Absurd case: both cannot accept *)
-        assert (N: DisjointResults (Halt true) (Halt true)) by eauto.
-        inversion N.
-      * apply run_par_both with (b1:=true) (b2:=false);
-        auto using run_ret.
-      * eapply run_par_l; eauto.
-        constructor.
+    }
+    destruct (halt_or_loop m2 i) as [He|Hl]. {
+      assert (Run m2 i false). {
+        rewrite halt_rw in *.
+        destruct He as ([],He); auto.
+        rewrite <- (disjoint_run_true_1_rw _ _ _ (Hr i)) in H.
+        (* Contradiction: run m2 and neg m2 *)
+        run_simpl_all.
+      }
+      eapply run_par_both; eauto.
+      constructor.
+    }
+    apply run_par_l with (b:=true); auto.
+    constructor.
+  Qed.
+
+  Lemma disjoint_halt_halt:
+    forall p1 p2 i,
+    Disjoint p1 p2 i ->
+    Halt p1 i ->
+    Halt p2 i ->
+    exists b, Run p1 i b /\ Run p2 i (negb b).
+  Proof.
+    intros.
+    rewrite halt_rw in *.
+    destruct H0 as ([], Ha), H1 as ([], Hb); eauto.
+    - erewrite <- disjoint_run_true_1_rw in Ha; eauto.
+      run_simpl_all.
+    - assert (Hr: Negative p2 i). { auto using negative_run_false. }
+      erewrite disjoint_run_true_1_rw in Hr; eauto.
   Qed.
 
   Lemma par_run_spec:
     forall m1 m2,
-    (forall i r1 r2, Run m1 i r1 -> Run m2 i r2 -> DisjointResults r1 r2) ->
+    (forall i, Disjoint m1 m2 i) ->
     par_run m1 m2 (par_mach m1 m2).
   Proof.
     intros m1 m3 Hr.
@@ -177,47 +222,85 @@ Section Defs.
     unfold par_mach in *.
     intros.
     remember (Read _) as p.
-    destruct (run_exists p i) as (r, He).
-    subst.
-    repeat rewrite run_read_rw in *.
-    destruct r as [ [] | ].
-    - left; split; auto.
-      rewrite run_par_rw in *.
-      inversion He; subst; clear He.
-      + destruct b; run_simpl_all.
-        assumption.
-      + destruct b; run_simpl_all.
-        assert (N: DisjointResults Loop (Halt false)) by eauto.
-        inversion N.
-      + destruct b1; run_simpl_all.
-        assumption.
-    - right.
+    destruct (halt_or_loop p i) as [Ha|Hl]; subst. {
+      rewrite halt_rw in *.
+      destruct Ha as ([], Ha). {
+        left; split; auto.
+        inversion_clear Ha.
+        rewrite run_par_rw in *.
+        inversion_clear H.
+        + destruct b; run_simpl_all.
+          assumption.
+        + destruct b; run_simpl_all.
+          assert (Hrej: Negative m3 i). { auto using negative_run_false. }
+          rewrite disjoint_run_true_1_rw in Hrej; eauto.
+        + destruct b1; run_simpl_all.
+          assumption.
+      }
+      right.
       left.
       split; auto.
+      rewrite run_read_rw in *.
       rewrite run_par_rw in *.
-      inversion He; subst; clear He.
+      inversion_clear Ha.
       + destruct b; run_simpl_all.
         auto.
       + destruct b; run_simpl_all.
         right.
-        intros N.
-        run_simpl_all.
+        eauto.
       + destruct b1; run_simpl_all; auto.
-    - right.
-      right.
-      split; auto.
-      rewrite run_par_rw in *.
-      inversion He; subst; clear He;
-      try (destruct b; run_simpl_all; auto); auto.
-      (* Impossible case, since Run (if b1 then ACCEPT else REJECT) i Loop *)
-      destruct b1; run_simpl_all.
+    }
+    right.
+    right.
+    split; auto.
+    assert (Hr := Hr i).
+    rewrite loop_read_rw in *.
+      split. {
+        rewrite loop_rw in *.
+        intros N.
+        contradict Hl.
+        destruct (halt_or_loop m3 i). {
+          edestruct disjoint_halt_halt as (b, (Ha,Hb)); eauto.
+          eapply run_to_halt; eauto.
+          rewrite run_par_rw.
+          eapply run_par_both; eauto.
+          constructor.
+        }
+        assert (Run m1 i true). {
+          destruct Hr as [(?,?)|(?,?)]; auto.
+          run_simpl_all.
+        }
+        apply run_to_halt with (b:=true); auto.
+        rewrite run_par_rw.
+        eapply run_par_l; eauto.
+        constructor.
+      }
+      rewrite loop_rw in *.
+      intros N.
+      contradict Hl.
+      destruct (halt_or_loop m1 i). {
+        edestruct disjoint_halt_halt as (b, (Ha,Hb)); eauto.
+        eapply run_to_halt; eauto.
+        rewrite run_par_rw.
+        eapply run_par_both; eauto.
+        constructor.
+      }
+      assert (Run m3 i true). {
+        rewrite <- disjoint_run_true_2_rw; eauto.
+        auto using negative_loop.
+      }
+      rewrite halt_rw in *.
+      exists false.
+      rewrite run_par_rw.
+      eapply run_par_r; eauto.
+      constructor.
   Qed.
 
   Lemma par_run_exists:
     forall m1 m2,
-    (forall i r1 r2, Run m1 i r1 -> Run m2 i r2 -> DisjointResults r1 r2) ->
+    (forall i, Disjoint m1 m2 i) ->
     exists p,
-      Recognizes p (fun i => Run m1 i (Halt true)) /\ par_run m1 m2 p.
+      Recognizes p (fun i => Run m1 i true) /\ par_run m1 m2 p.
   Proof.
     intros.
     exists (par_mach m1 m2).
@@ -242,8 +325,8 @@ Section Defs.
     Recognizes m1 L ->
     Recognizes m2 (compl L) ->
     forall i,
-    Run m1 i (Halt false) ->
-    Run m2 i (Halt true).
+    Run m1 i false ->
+    Run m2 i true.
   Proof.
     intros.
     apply recognizes_run_reject with (L:=L) in H1; auto.
@@ -254,21 +337,28 @@ Section Defs.
     forall m1 m2 L,
     Recognizes m1 L ->
     Recognizes m2 (compl L) ->
-    (forall i r1 r2, Run m1 i r1 -> Run m2 i r2 -> DisjointResults r1 r2).
+    (forall i, Disjoint m1 m2 i).
   Proof.
     intros.
-    destruct r1 as [ [] | ].
-    - apply H in H1.
-      eapply co_recognizes_not_accept with (m:=m2) in H1; eauto.
-      destruct r2 as [ [] | ]; try contradiction; constructor.
-    - apply recognizes_run_reject with (L:=L) in H1; auto.
-      apply co_recognizes_accept with (m:=m2) in H1; auto.
-      run_simpl.
-      constructor.
-    - apply recognizes_run_loop with (L:=L) in H1; auto.
-      apply co_recognizes_accept with (m:=m2) in H1; auto.
-      run_simpl.
-      constructor.
+    unfold Disjoint.
+    destruct
+      (run_true_or_negative m1 i) as [Ha|Ha],
+      (run_true_or_negative m2 i) as [Hb|Hb];
+      (* Two cases are trivial. *)
+      auto.
+    - (* We have L i *)
+      assert (H_yes: L i) by (eapply recognizes_run_accept; eauto).
+      (* But we also have ~ L i *)
+      contradict H_yes.
+      eapply recognizes_run_accept with (L:=compl L) in Hb; eauto.
+    - assert (~ L i). {
+        (* (m1, i) is negative, and m1 recognizes L, thus  ~ L i *) 
+        eauto using recognizes_inv_negative.
+      }
+      (* Since we have ~ L i and m2 recognizes L, thus (m2, i) returns true *)
+      assert (Run m2 i true). { eapply co_recognizes_accept; eauto. }
+      (* But m2 i is negative *)
+      run_simpl_all.
   Qed.
 
   Lemma recognizable_co_recognizable_to_decidable:
@@ -294,10 +384,10 @@ Section Defs.
     + unfold Decider.
       intros.
       assert (Hp := Hp i).
-      intuition; eauto.
+      intuition; eauto using run_to_halt.
       apply recognizes_run_loop with (L:=L) in H2; auto.
       apply co_recognizes_accept with (m:=m2) in H2; auto.
-      (* We have that m2 accepts i and also loops with i *)
+      (* m2 runs and loops, absurd *)
       run_simpl_all.
   Qed.
 
