@@ -291,7 +291,7 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
     apply a_tm_undecidable.
     apply decidable_def with (m:=Read (fun p =>
       let (M, w) := decode_prog_input p in
-      mlet b <- solves_HALT in
+      mlet b <- Call solves_HALT p in
       if b then Call M w else Ret false 
     )).
     apply decides_def. {
@@ -306,6 +306,7 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
       rewrite run_read_rw in *.
       destruct (decode_prog_input i) as (p, j) eqn:r1.
       apply run_seq with (b1:=true). {
+        constructor.
         apply decides_accept with (L:=HALT_tm); auto.
         unfold HALT_tm.
         rewrite r1.
@@ -318,12 +319,10 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
     intros.
     rewrite halt_read_rw.
     destruct (decode_prog_input i) as (p, j) eqn:r1.
-    assert (Hp: Halt solves_HALT i). { eapply decides_to_halt; eauto. }
-    rewrite halt_rw in Hp.
-    destruct Hp as (b, Hr).
-    econstructor; eauto.
+    eapply halt_seq_decides; eauto.
+    intros b Hc.
     destruct b; auto using halt_ret.
-    apply decides_run_accept with (L:=HALT_tm) in Hr; eauto.
+    apply decides_run_accept with (L:=HALT_tm) in Hc; eauto.
     unfold HALT_tm in *.
     rewrite r1 in *.
     constructor.
@@ -400,16 +399,8 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
       intros i.
       rewrite halt_read_rw.
       destruct (decode_prog_input i) as (p, j) eqn:hr1.
-      destruct decides_to_run with (i:=[[
-        Read (fun x =>
-          if input_eq_dec x j then
-          Call p j else Ret false)
-        ]])
-        (p:=solve_E) (L:=E_tm) as (b,Ha); auto. 
-      apply halt_seq with (b:=b). {
-        constructor.
-        assumption.
-      }
+      eapply halt_seq_decides; eauto.
+      intros.
       destruct b; constructor.
   Qed.
 

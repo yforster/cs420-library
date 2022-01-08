@@ -1038,12 +1038,12 @@ Require Import Coq.Logic.Classical_Prop.
     Lemma decider_to_run:
       forall p i,
       Decider p ->
-      Run p i true \/ Run p i false.
+      exists b, Run p i b.
     Proof.
       intros.
       apply decider_to_halt with (i:=i) in H.
       rewrite halt_rw in *.
-      destruct H as ([], H); auto.
+      assumption.
     Qed.
 
     Lemma decides_to_run:
@@ -1135,6 +1135,31 @@ Require Import Coq.Logic.Classical_Prop.
       eapply recognizes_run_accept; eauto.
     Qed.
 
+    Lemma halt_seq_decider:
+      forall p i j (c:bool -> Prog),
+      Decider p ->
+      (forall (b:bool), Run p j b -> Halt (c b) i) -> 
+      Halt (Seq (Call p j) c) i.
+    Proof.
+      intros.
+      destruct decider_to_run with (i:=j)
+        (p:=p) as (b,Ha); auto.
+      apply halt_seq with (b:=b); auto.
+      constructor.
+      assumption.
+    Qed.
+
+    Lemma halt_seq_decides:
+      forall p i j L (c:bool -> Prog),
+      Decides p L ->
+      (forall (b:bool), Run p j b -> Halt (c b) i) -> 
+      Halt (Seq (Call p j) c) i.
+    Proof.
+      intros.
+      apply halt_seq_decider; auto.
+      destruct H; auto.
+    Qed.
+
   End Decidable.
 
 
@@ -1218,4 +1243,3 @@ Require Import Coq.Logic.Classical_Prop.
   (** Simplify everything *)
 
   Ltac run_simpl_all := repeat run_simpl.
-
