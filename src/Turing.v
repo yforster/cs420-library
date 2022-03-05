@@ -48,7 +48,6 @@ Require Import Coq.Logic.Classical_Prop.
     (exists b, Exec m i b) \/ (forall b, ~ Exec m i b).
 
   Inductive Prog :=
-  | Read: (input -> Prog) -> Prog
   | Call: Prog -> input -> Prog
     (**
      `Seq p1 f`: run p1, if p1 terminates, then
@@ -74,10 +73,6 @@ Require Import Coq.Logic.Classical_Prop.
     `Run p r`.
     *)
   Inductive Run: Prog -> input -> bool -> Prop :=
-  | run_read:
-    forall p i b,
-    Run (p i) i b->
-    Run (Read p) i b
   | run_call:
     forall p i j b,
     Run p i b ->
@@ -100,10 +95,6 @@ Require Import Coq.Logic.Classical_Prop.
     Run (Seq p q) i b2.
 
   Inductive Halt : Prog -> input -> Prop :=
-  | halt_read:
-    forall p i,
-    Halt (p i) i ->
-    Halt (Read p) i
   | halt_call:
     forall p i j,
     Halt p i ->
@@ -126,10 +117,6 @@ Require Import Coq.Logic.Classical_Prop.
     Halt (Seq p q) i.
 
   Inductive Loop: Prog -> input -> Prop :=
-  | loop_read:
-    forall p i,
-    Loop (p i) i ->
-    Loop (Read p) i
   | loop_call:
     forall p i j,
     Loop p i ->
@@ -163,14 +150,38 @@ Require Import Coq.Logic.Classical_Prop.
 
   (** We define a notation for sequencing. *)
   Notation "'mlet' x <- e 'in' c" := (Seq e (fun x => c)) (at level 60, right associativity).
+  Definition ClosureOf (f:input -> input -> Prog) (c:input -> Prog) :=
+    forall param i b, Run (c param) i b <-> Run (f param i) i b.
 
-  Lemma run_read_rw:
-    forall f i b,
-    Run (Read f) i b <-> Run (f i) i b.
+  Axiom closure_of :
+    forall p : input -> input -> Prog,
+    exists R, ClosureOf p R.
+
+  Definition CodeOf f p :=
+    forall i b, Run p i b <-> Run (f i) i b.
+
+  Lemma code_of :
+    forall f : input -> Prog,
+    exists p, CodeOf f p.
   Proof.
-    split; intros.
-    - inversion H; subst; auto.
-    - constructor; assumption.
+    intros p. destruct (closure_of (fun _ => p)) as [R HR].
+    exists (R input_inhabited). unfold CodeOf. intros. eapply HR.
+  Qed.
+
+  Lemma closure_of_run_rw {p} {f}:
+    ClosureOf f p ->
+    forall j i b, Run (p j) i b <-> Run (f j i) i b.
+  Proof.
+    unfold ClosureOf.
+    intuition.
+  Qed.
+
+  Lemma code_of_run_rw {p} {f}:
+    CodeOf f p ->
+    forall i b, Run p i b <-> Run (f i) i b.
+  Proof.
+    unfold CodeOf.
+    intuition.
   Qed.
 
   Lemma run_call_rw:
@@ -180,15 +191,6 @@ Require Import Coq.Logic.Classical_Prop.
     split; intros.
     - inversion H; subst; auto.
     - constructor; auto.
-  Qed.
-
-  Lemma halt_read_rw:
-    forall f i,
-    Halt (Read f) i <-> Halt (f i) i.
-  Proof.
-    split; intros.
-    - inversion H; subst; auto.
-    - constructor; assumption.
   Qed.
 
   Lemma halt_call_rw:
@@ -234,9 +236,9 @@ Require Import Coq.Logic.Classical_Prop.
     Proof.
       intros.
       induction H; try destruct IHHalt as (b, Hr).
-      - exists b.
+      (*- exists b.
         constructor.
-        assumption.
+        assumption.*)
       - exists b.
         constructor.
         assumption.
@@ -257,8 +259,8 @@ Require Import Coq.Logic.Classical_Prop.
     Proof.
       intros.
       induction H.
-      - constructor.
-        assumption.
+(*      - constructor.
+        assumption.*)
       - constructor.
         assumption.
       - constructor.
@@ -276,11 +278,22 @@ Require Import Coq.Logic.Classical_Prop.
         eauto using run_to_halt.
     Qed.
 
+    Lemma code_of_halt_rw {p} {f}:
+      CodeOf f p ->
+      forall i, Halt p i <-> Halt (f i) i.
+    Proof.
+      unfold CodeOf.
+      intros.
+      repeat rewrite halt_rw.
+      split; intros (x, Hx); exists x; apply H; auto.
+    Qed.
+
     Lemma halt_or_loop:
       forall p i,
       Halt p i \/ Loop p i.
     Proof.
       induction p; intros.
+        (*
       - assert (H := H i i).
         destruct H as [H| H].
         + left.
@@ -289,6 +302,7 @@ Require Import Coq.Logic.Classical_Prop.
         + right.
           constructor.
           assumption.
+          *)
       - assert (IHp := IHp i).
         destruct IHp as [H|H]. {
           left.
@@ -346,9 +360,9 @@ Require Import Coq.Logic.Classical_Prop.
     Proof.
       intros.
       induction H; intros N.
-      - inversion_clear N.
+     (* - inversion_clear N.
         contradict H.
-        auto.
+        auto.*)
       - inversion_clear N.
         contradiction.
       - inversion_clear N.
@@ -387,15 +401,14 @@ Require Import Coq.Logic.Classical_Prop.
       auto using not_halt_to_loop.
     Qed.
 
-    Lemma loop_read_rw:
-      forall p i,
-      Loop (Read p) i <-> Loop (p i) i.
+    Lemma code_of_loop_rw {p} {f}:
+      CodeOf f p ->
+      forall i, Loop p i <-> Loop (f i) i.
     Proof.
-      split; intros. {
-        inversion_clear H.
-        assumption.
-      }
-      auto using loop_read.
+      intros.
+      repeat rewrite loop_rw.
+      repeat rewrite (code_of_halt_rw H).
+      reflexivity.
     Qed.
 
     Lemma loop_call_rw:
@@ -468,27 +481,24 @@ Require Import Coq.Logic.Classical_Prop.
       auto using negative_loop.
     Qed.
 
-    Lemma negative_read_rw:
-      forall p i,
-      Negative (Read p) i <-> Negative (p i) i.
+    Lemma code_of_negative_rw {p} {f}:
+      CodeOf f p ->
+      forall i, Negative p i <-> Negative (f i) i.
     Proof.
-      split; intros. {
-        inversion_clear H. {
-          rewrite run_read_rw in *.
-          auto using negative_run_false.
-        }
-        rewrite loop_read_rw in *.
-        auto using negative_loop.
-      }
-      rewrite negative_alt_rw in H.
-      destruct H. {
-        apply negative_run_false.
-        rewrite run_read_rw.
-        assumption.
-      }
-      apply negative_loop.
-      rewrite loop_read_rw.
-      assumption.
+      intros.
+      repeat rewrite negative_rw.
+      repeat rewrite (code_of_run_rw H).
+      reflexivity.
+    Qed.
+
+    Lemma closure_of_negative_rw {p} {f}:
+      ClosureOf f p ->
+      forall i j, Negative (p j) i <-> Negative (f j i) i.
+    Proof.
+      intros.
+      repeat rewrite negative_rw.
+      rewrite (closure_of_run_rw H).
+      reflexivity.
     Qed.
 
     Lemma negative_call_rw:
@@ -523,6 +533,15 @@ Require Import Coq.Logic.Classical_Prop.
         auto;
         right;
         auto using negative_run_false, negative_loop.
+    Qed.
+
+    Lemma negative_ret:
+      forall i,
+      Negative (Ret false) i.
+    Proof.
+      intros.
+      left.
+      constructor.
     Qed.
 
   End RunLoopHalt.
@@ -616,7 +635,6 @@ Require Import Coq.Logic.Classical_Prop.
   Notation "'[[' M ']]'" := (encode_prog M).
   Notation "'<[' M , w ']>'" := (encode_prog_input M w).
 
-
   (** Define the equivalence of languages *)
   Definition Equiv (L1 L2:lang) :=
     forall i,
@@ -633,13 +651,30 @@ Require Import Coq.Logic.Classical_Prop.
       iff language L accepts i.
        *)
 
-  Definition Recognizes (p:Prog) (L:lang) :=
-    forall i, Run p i true <-> L i.
+  Definition Recognizes (p: input -> Prog) (L:lang) :=
+    forall i, Run (p i) i true <-> L i.
 
-  Lemma recognizes_def:
+  Lemma recognizes_def {p} {L}:
+    (forall i, Run (p i) i true <-> L i) ->
+    Recognizes p L.
+  Proof.
+    intros.
+    unfold Recognizes.
+    assumption.
+  Qed.
+
+  Lemma recognizes_rw {p} {L}:
+    Recognizes p L ->
+    forall i, Run (p i) i true <-> L i.
+  Proof.
+    unfold Recognizes.
+    intuition.
+  Qed.
+
+  Lemma recognizes_def_2:
     forall p (L:lang),
-    (forall i, Run p i true -> L i) ->
-    (forall i, L i -> Run p i true) ->
+    (forall i, Run (p i) i true -> L i) ->
+    (forall i, L i -> Run (p i) i true) ->
     Recognizes p L.
   Proof.
     intros.
@@ -648,10 +683,10 @@ Require Import Coq.Logic.Classical_Prop.
   Qed.
 
   Lemma recognizes_impl:
-    forall m L1 L2,
+    forall p L1 L2,
     Equiv L1 L2 ->
-    Recognizes m L1 ->
-    Recognizes m L2.
+    Recognizes p L1 ->
+    Recognizes p L2.
   Proof.
     intros.
     unfold Recognizes in *.
@@ -721,13 +756,13 @@ Require Import Coq.Logic.Classical_Prop.
       there is some machine m that recognizes it. *)
 
   Definition Recognizable (L:lang) : Prop :=
-    exists m, Recognizes m L.
+    exists p, Recognizes p L.
 
   Global Instance recognizable_equiv_proper: Proper (Equiv ==> iff) Recognizable.
   Proof.
     unfold Proper, respectful, Recognizable.
     intros.
-    split; intros (m, Hx).
+    split; intros (p, Hx).
     - rewrite H in Hx.
       eauto.
     - rewrite <- H in Hx.
@@ -735,10 +770,10 @@ Require Import Coq.Logic.Classical_Prop.
   Qed.
 
   Lemma recognizable_def:
-    forall m L, Recognizes m L -> Recognizable L.
+    forall p L, Recognizes p L -> Recognizable L.
   Proof.
     intros.
-    exists m.
+    exists p.
     assumption.
   Qed.
 
@@ -747,7 +782,7 @@ Require Import Coq.Logic.Classical_Prop.
     Lemma recognizes_run_reject:
       forall p L i,
       Recognizes p L ->
-      Run p i false ->
+      Run (p i) i false ->
       ~ L i.
     Proof.
       intros.
@@ -757,11 +792,23 @@ Require Import Coq.Logic.Classical_Prop.
       inversion Hx.
     Qed.
 
+    Lemma c_recognizes_run_reject:
+      forall f p L i,
+      Recognizes f L ->
+      CodeOf f p ->
+      Run p i false ->
+      ~ L i.
+    Proof.
+      intros f p L i hr hc.
+      rewrite (code_of_run_rw hc).
+      eauto using recognizes_run_reject.
+    Qed.
+
     Lemma recognizes_run_accept:
       forall p L,
       Recognizes p L ->
       forall i,
-      Run p i true ->
+      Run (p i) i true ->
       L i.
     Proof.
       intros.
@@ -769,13 +816,25 @@ Require Import Coq.Logic.Classical_Prop.
       assumption.
     Qed.
 
+    Lemma c_recognizes_run_accept:
+      forall f p L i,
+      Recognizes f L ->
+      CodeOf f p ->
+      Run p i true ->
+      L i.
+    Proof.
+      intros f p L i hr hc.
+      rewrite (code_of_run_rw hc).
+      intros.
+      eapply recognizes_run_accept; eauto.
+    Qed.
 
     Lemma recognizes_not_accept:
       forall p L,
       Recognizes p L ->
       forall i,
       ~ L i ->
-      ~ Run p i true.
+      ~ Run (p i) i true.
     Proof.
       intros.
       intros N.
@@ -788,7 +847,7 @@ Require Import Coq.Logic.Classical_Prop.
       Recognizes p L ->
       forall i,
       ~ L i ->
-      Negative p i.
+      Negative (p i) i.
     Proof.
       intros.
       rewrite negative_rw.
@@ -799,7 +858,7 @@ Require Import Coq.Logic.Classical_Prop.
       forall p L i,
       Recognizes p L ->
       L i ->
-      Run p i true.
+      Run (p i) i true.
     Proof.
       intros.
       apply H in H0.
@@ -810,7 +869,7 @@ Require Import Coq.Logic.Classical_Prop.
       forall p L,
       Recognizes p L ->
       forall i,
-      Loop p i ->
+      Loop (p i) i ->
       ~ L i.
     Proof.
       intros.
@@ -824,7 +883,7 @@ Require Import Coq.Logic.Classical_Prop.
       forall p L,
       Recognizes p L ->
       forall i,
-      Negative p i ->
+      Negative (p i) i ->
       ~ L i.
     Proof.
       intros.
@@ -837,7 +896,7 @@ Require Import Coq.Logic.Classical_Prop.
       forall p L,
       Recognizes p L ->
       forall i,
-      Run p i true <-> L i.
+      Run (p i) i true <-> L i.
     Proof.
       split; intros.
       - eapply recognizes_run_accept; eauto.
@@ -884,9 +943,9 @@ Require Import Coq.Logic.Classical_Prop.
     Qed.
 
     Lemma co_recognizes_run_accept:
-      forall m L i,
-      Recognizes m (compl L) ->
-      Run m i true ->
+      forall p L i,
+      Recognizes p (compl L) ->
+      Run (p i) i true ->
       ~ L i.
     Proof.
       intros.
@@ -894,10 +953,10 @@ Require Import Coq.Logic.Classical_Prop.
     Qed.
 
     Lemma co_recognizes_not_accept:
-      forall m L i,
-      Recognizes m (compl L) ->
+      forall p L i,
+      Recognizes p (compl L) ->
       L i ->
-      ~ Run m i true.
+      ~ Run (p i) i true.
     Proof.
       intros.
       intros N.
@@ -906,10 +965,10 @@ Require Import Coq.Logic.Classical_Prop.
     Qed.
 
     Lemma co_recognizes_accept:
-      forall m L i,
-      Recognizes m (compl L) ->
+      forall p L i,
+      Recognizes p (compl L) ->
       ~ L i ->
-      Run m i true.
+      Run (p i) i true.
     Proof.
       intros.
       unfold compl in *.
@@ -925,36 +984,36 @@ Require Import Coq.Logic.Classical_Prop.
     (** We define a decider as any Turing Machine that returns either Accept or
         Reject, but not Loop. *)
 
-    Definition Decider (p:Prog) := forall i, Halt p i.
+    Definition Decider (p:input -> Prog) := forall i, Halt (p i) i.
 
     Lemma decider_def:
       forall p,
-      (forall i, Halt p i) ->
+      (forall i, Halt (p i) i) ->
       Decider p.
     Proof.
       intros.
       unfold Decider; intros. eauto.
     Qed.
 
-    Definition Decides m L := Recognizes m L /\ Decider m.
+    Definition Decides p L := Recognizes p L /\ Decider p.
 
     Lemma decides_def:
-      forall m L,
-      Recognizes m L ->
-      Decider m ->
-      Decides m L.
+      forall p L,
+      Recognizes p L ->
+      Decider p ->
+      Decides p L.
     Proof.
       intros.
       split; assumption.
     Qed.
 
-    Definition Decidable L := exists m, Decides m L.
+    Definition Decidable L := exists p, Decides p L.
 
     Lemma decidable_def:
-      forall m L, Decides m L -> Decidable L.
+      forall p L, Decides p L -> Decidable L.
     Proof.
       intros.
-      exists m.
+      exists p.
       assumption.
     Qed.
 
@@ -964,9 +1023,9 @@ Require Import Coq.Logic.Classical_Prop.
       Recognizable L.
     Proof.
       intros.
-      destruct H as (m, H).
+      destruct H as (p, H).
       destruct H.
-      apply recognizable_def with (m:=m).
+      apply recognizable_def with (p:=p).
       assumption.
     Qed.
 
@@ -992,32 +1051,32 @@ Require Import Coq.Logic.Classical_Prop.
     Qed.
 
     Lemma decides_run_reject:
-      forall m L i,
-      Decides m L ->
-      Run m i false ->
+      forall p L i,
+      Decides p L ->
+      Run (p i) i false ->
       ~ L i.
     Proof.
       intros.
       apply decides_to_recognizes in H.
-      apply recognizes_run_reject with (p:=m); auto.
+      apply recognizes_run_reject with (p:=p); auto.
     Qed.
 
     Lemma decides_run_accept:
-      forall m L i,
-      Decides m L ->
-      Run m i true ->
+      forall p L i,
+      Decides p L ->
+      Run (p i) i true ->
       L i.
     Proof.
       intros.
       apply decides_to_recognizes in H.
-      apply recognizes_run_accept with (p:=m); auto.
+      apply recognizes_run_accept with (p:=p); auto.
     Qed.
 
     Lemma decides_accept:
-      forall m L i,
-      Decides m L ->
+      forall p L i,
+      Decides p L ->
       L i ->
-      Run m i true.
+      Run (p i) i true.
     Proof.
       intros.
       apply decides_to_recognizes in H.
@@ -1028,7 +1087,7 @@ Require Import Coq.Logic.Classical_Prop.
       forall p,
       Decider p ->
       forall i,
-      Halt p i.
+      Halt (p i) i.
     Proof.
       intros.
       unfold Decider in *.
@@ -1038,7 +1097,7 @@ Require Import Coq.Logic.Classical_Prop.
     Lemma decider_to_run:
       forall p i,
       Decider p ->
-      exists b, Run p i b.
+      exists b, Run (p i) i b.
     Proof.
       intros.
       apply decider_to_halt with (i:=i) in H.
@@ -1049,7 +1108,7 @@ Require Import Coq.Logic.Classical_Prop.
     Lemma decides_to_run:
       forall p L i,
       Decides p L ->
-      exists b, Run p i b.
+      exists b, Run (p i) i b.
     Proof.
       intros.
       destruct H.
@@ -1062,7 +1121,7 @@ Require Import Coq.Logic.Classical_Prop.
       forall p L,
       Decides p L ->
       forall i,
-      Halt p i.
+      Halt (p i) i.
     Proof.
       intros.
       destruct H.
@@ -1070,11 +1129,23 @@ Require Import Coq.Logic.Classical_Prop.
       auto.
     Qed.
 
+    Lemma c_decides_to_halt:
+      forall p f L,
+      Decides f L ->
+      CodeOf f p ->
+      forall i,
+      Halt p i.
+    Proof.
+      intros.
+      rewrite (code_of_halt_rw H0).
+      eauto using decides_to_halt.
+    Qed.
+
     Lemma decider_to_not_loop:
       forall p,
       Decider p ->
       forall i,
-      ~ Loop p i.
+      ~ Loop (p i) i.
     Proof.
       intros.
       specialize (H i).
@@ -1084,8 +1155,8 @@ Require Import Coq.Logic.Classical_Prop.
     Lemma decider_not_reject:
       forall p i,
       Decider p ->
-      ~ Run p i false ->
-      Run p i true.
+      ~ Run (p i) i false ->
+      Run (p i) i true.
     Proof.
       intros.
       assert (H := H i).
@@ -1096,10 +1167,10 @@ Require Import Coq.Logic.Classical_Prop.
     Qed.
 
     Lemma decider_not_accept:
-      forall m i,
-      Decider m ->
-      ~ Run m i true ->
-      Run m i false.
+      forall p i,
+      Decider p ->
+      ~ Run (p i) i true ->
+      Run (p i) i false.
     Proof.
       intros.
       assert (H := H i).
@@ -1110,9 +1181,9 @@ Require Import Coq.Logic.Classical_Prop.
     Qed.
 
     Lemma decides_to_decider:
-      forall m L,
-      Decides m L ->
-      Decider m.
+      forall p L,
+      Decides p L ->
+      Decider p.
     Proof.
       intros.
       unfold Decides in *.
@@ -1120,14 +1191,14 @@ Require Import Coq.Logic.Classical_Prop.
     Qed.
 
     Lemma decides_reject:
-      forall m L i,
-      Decides m L ->
+      forall p L i,
+      Decides p L ->
       ~ L i ->
-      Run m i false.
+      Run (p i) i false.
     Proof.
       intros.
       destruct H.
-      assert (Ha: Halt m i) by auto using decider_to_halt.
+      assert (Ha: Halt (p i) i) by auto using decider_to_halt.
       rewrite halt_rw in *.
       destruct Ha as (b, Ha).
       destruct b; auto.
@@ -1135,25 +1206,94 @@ Require Import Coq.Logic.Classical_Prop.
       eapply recognizes_run_accept; eauto.
     Qed.
 
+    Lemma run_seq_rw:
+      forall p q i b,
+      Run (Seq p q) i b <-> (
+        (exists b', Run p i b' /\ Run (q b') i b)
+      ).
+    Proof.
+      split; intros. {
+        inversion_clear H.
+        destruct b; exists b1; intuition.
+      }
+      destruct H as (b', (Ha,Hb)).
+      econstructor; eauto.
+    Qed.
+
+    Lemma run_seq_pre_rw:
+      forall p q i b b',
+      Run p i b' ->
+      Run (Seq p q) i b <-> Run (q b') i b.
+    Proof.
+      intros.
+      rewrite run_seq_rw.
+      split; intros. {
+        destruct H0 as (b1, (Hr1, Hr2)).
+        assert (b' = b1) by eauto using run_fun.
+        subst.
+        assumption.
+      }
+      exists b'.
+      intuition.
+    Qed.
+
+    Lemma decides_false_rw:
+      forall f P,
+      Decides f P ->
+      forall i,
+      Run (f i) i false <-> ~ P i.
+    Proof.
+      split; intros. {
+        eauto using decides_run_reject.
+      }
+      eauto using decides_reject.
+    Qed.
+
+    Lemma decides_true_rw:
+      forall f P,
+      Decides f P ->
+      forall i,
+      Run (f i) i true <-> P i.
+    Proof.
+      split; intros. {
+        eapply decides_run_accept; eauto.
+      }
+      eauto using decides_accept.
+    Qed.
+
+    Lemma halt_seq_alt:
+      forall p i (c:bool -> Prog),
+      Halt p i ->
+      (forall (b:bool), Run p i b -> Halt (c b) i) -> 
+      Halt (Seq p c) i.
+    Proof.
+      intros.
+      rewrite halt_rw in H.
+      destruct H as (b, H).
+      apply halt_seq with (b:=b); auto.
+    Qed.
+
     Lemma halt_seq_decider:
       forall p i j (c:bool -> Prog),
       Decider p ->
-      (forall (b:bool), Run p j b -> Halt (c b) i) -> 
-      Halt (Seq (Call p j) c) i.
+      (forall (b:bool), Run (p j) j b -> Halt (c b) i) -> 
+      Halt (Seq (Call (p j) j) c) i.
     Proof.
       intros.
-      destruct decider_to_run with (i:=j)
-        (p:=p) as (b,Ha); auto.
-      apply halt_seq with (b:=b); auto.
-      constructor.
-      assumption.
+      apply halt_seq_alt. {
+        constructor.
+        eauto.
+      }
+      intros.
+      inversion_clear H1.
+      eauto.
     Qed.
 
     Lemma halt_seq_decides:
       forall p i j L (c:bool -> Prog),
       Decides p L ->
-      (forall (b:bool), Run p j b -> Halt (c b) i) -> 
-      Halt (Seq (Call p j) c) i.
+      (forall (b:bool), Run (p j) j b -> Halt (c b) i) -> 
+      Halt (Seq (Call (p j) j) c) i.
     Proof.
       intros.
       apply halt_seq_decider; auto.
@@ -1170,15 +1310,15 @@ Require Import Coq.Logic.Classical_Prop.
   | [ H: _ |- _ ] =>
     match type of H with
       | Run (Call _ _) _ _ => idtac
-      | Run (Read _) _ _ => idtac
-      | Run (Tur _) _ _ => idtac
+(*       | Run (Read _) _ _ => idtac *)
+      | Run (Tur _) _ _ => idtac 
       | Run (Ret _) _ _ => idtac
       | Loop (Call _ _) _ => idtac
-      | Loop (Read _) _ => idtac
+(*       | Loop (Read _) _ => idtac *)
       | Loop (Tur _) _ => idtac
       | Loop (Ret _) _ => idtac
       | Halt (Call _ _) _ => idtac
-      | Halt (Read _) _ => idtac
+(*       | Halt (Read _) _ => idtac *)
       | Halt (Tur _) _ => idtac
       | Halt (Ret _) _ => idtac
       | _ => fail

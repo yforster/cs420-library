@@ -4,6 +4,6 @@ src/Lang.v
 src/Regex.v
 src/Regular.v
 src/Turing.v
-src/LangDec.v
 src/LangRed.v
+src/LangDec.v
 src/Problems.v

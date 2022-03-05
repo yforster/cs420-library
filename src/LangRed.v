@@ -5,10 +5,18 @@ Require Coq.Classes.Morphisms.
 Require Import Coq.Setoids.Setoid.
 
 Require Import Turing.Turing.
-Require Import Turing.LangDec.
+Import Morphisms.
 
-  Import Morphisms.
   Definition Reduction f (A B:lang) := forall w, A w <-> B (f w).
+
+  Lemma reduction_rw {f} {A B:lang}:
+    Reduction f A B ->
+    forall w, A w <-> B (f w).
+  Proof.
+    unfold Reduction.
+    intros.
+    auto.
+  Qed.
 
   Definition Reducible A B := exists f, Reduction f A B.
 
@@ -152,24 +160,20 @@ Require Import Turing.LangDec.
       Decidable A.
     Proof.
       intros A B (f, Hred) (M, (Hr, Hd)).
-      apply decidable_def with (m:=Read (fun w => Call M (f w))).
+      destruct (code_of M) as (R, HR).
+      apply decidable_def with (p:=fun w => Call R (f w)).
       split.
-      - unfold Recognizes.
-        split; intros. {
-          run_simpl_all.
-          apply Hred.
-          apply Hr.
-          assumption.
-        }
-        constructor.
-        constructor.
-        apply Hr.
-        apply Hred.
-        assumption.
+      - apply recognizes_def.
+        intros.
+        rewrite run_call_rw.
+        rewrite (code_of_run_rw HR).
+        rewrite (recognizes_rw Hr).
+        rewrite (reduction_rw Hred).
+        reflexivity.
       - apply decider_def.
         intros.
-        rewrite halt_read_rw.
         rewrite halt_call_rw.
+        rewrite (code_of_halt_rw HR).
         auto using decider_to_halt.
     Qed.
 
@@ -183,19 +187,15 @@ Require Import Turing.LangDec.
       unfold Recognizes in *.
       destruct Hred as (f, Hr).
       destruct Ha as (M, Ha).
-      apply recognizable_def with (m:= Read (fun w => Call M (f w) )).
-      unfold Recognizes.
-      split; intros. {
-        run_simpl_all.
-        apply Ha in H4.
-        apply Hr in H4.
-        assumption.
-      }
-      constructor.
-      constructor.
-      apply Hr in H.
-      apply Ha.
-      assumption.
+      destruct (code_of M) as (R, hc).
+      apply recognizable_def with (p:= fun w => Call R (f w)).
+      apply recognizes_def.
+      intros.
+      rewrite run_call_rw. (* LHS: Remove the call *)
+      rewrite (reduction_rw Hr). (* A i = B (f i) *)
+      rewrite <- (recognizes_rw Ha). (* B (f i) = Run (M (f i)) (f i) true *)
+      rewrite (code_of_run_rw hc). (* Run R (f i) true = Run (M (f i)) (f i) true *)
+      reflexivity.
     Qed.
 
     Corollary reducible_undecidable: (* ---------- Corollary 5.29 ----------- *)

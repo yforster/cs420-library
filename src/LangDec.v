@@ -61,40 +61,40 @@ Section Defs.
     Decidable (compl L).
   Proof.
     intros.
-    destruct H as (m, H).
-    apply decidable_def with (m:=mlet b <- m in Ret (negb b)).
+    destruct H as (p, H).
+    apply decidable_def with (p:=fun i => mlet b <- p i in Ret (negb b)).
     apply decides_def.
     - unfold compl.
       split; intros. {
         intros N.
-        assert (Run m i true) by eauto using decides_accept.
+        assert (Run (p i) i true) by eauto using decides_accept.
         inversion H0; subst; clear H0.
         run_simpl_all.
       }
-      assert (Run m i false) by eauto using decides_reject.
+      assert (Run (p i) i false) by eauto using decides_reject.
       eapply run_seq; eauto.
       constructor.
     - apply decider_def.
       intros.
-      assert (Ha: Halt m i) by eauto using decides_to_halt.
+      assert (Ha: Halt (p i) i) by eauto using decides_to_halt.
       rewrite halt_rw in Ha.
       destruct Ha as (b, Ha).
       econstructor; eauto.
       constructor.
   Qed.
 
-  Definition par_run (m1 m2:Prog) p :=
+  Definition par_run (p1 p2:Prog) p :=
     forall i,
       (
-        Run p i true /\ Run m1 i true
+        Run p i true /\ Run p1 i true
       ) \/ (
-        Run p i false /\ (Run m1 i false \/ Halt m2 i)
+        Run p i false /\ (Run p1 i false \/ Halt p2 i)
       ) \/ (
-        Loop p i /\ Loop m1 i /\ Loop m2 i
+        Loop p i /\ Loop p1 i /\ Loop p2 i
       ).
 
-  Definition par_mach M1 M2 : Prog :=
-    Read (fun w =>
+  Definition par_mach M1 M2 : input -> Prog :=
+    fun w =>
       plet b <- M1 \\ M2 in
       Ret (match b with
       | pleft true
@@ -102,7 +102,7 @@ Section Defs.
       | pright false => true
       | _ => false
       end)
-    ).
+    .
 
   Definition Disjoint p1 p2 i : Prop :=
     (Run p1 i true /\ Negative p2 i)
@@ -151,7 +151,6 @@ Section Defs.
     unfold par_mach.
     intros m1 m2 Hr; intros.
     unfold Recognizes; intros.
-    rewrite run_read_rw.
     rewrite run_par_rw in *.
     split; intros. {
       (* Show that whenever the implementation accepts, then the language
@@ -213,9 +212,9 @@ Section Defs.
   Qed.
 
   Lemma par_run_spec:
-    forall m1 m2,
-    (forall i, Disjoint m1 m2 i) ->
-    par_run m1 m2 (par_mach m1 m2).
+    forall p1 p2,
+    (forall i, Disjoint p1 p2 i) ->
+    par_run p1 p2 (par_mach p1 p2).
   Proof.
     intros m1 m3 Hr.
     unfold par_run.
