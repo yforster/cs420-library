@@ -20,14 +20,6 @@ Require Import Coq.Logic.Classical_Prop.
   Axiom encode_decode_pair_rw:
     forall w,
     encode_pair (decode_pair w) = w.
-  Axiom encode_pair_ext:
-    forall w1 w2,
-    encode_pair w1 = encode_pair w2 ->
-    w1 = w2.
-  Axiom decode_pair_ext:
-    forall p1 p2,
-    decode_pair p1 = decode_pair p2 ->
-    p1 = p2.
 
   (** A language is a function that given an input (a word) holds if, and only if,
       that word is in the language. Thus, [L w] is the same as saying $w \in L$.
@@ -444,30 +436,7 @@ Require Import Coq.Logic.Classical_Prop.
       rewrite (closure_of_run_rw H).
       reflexivity.
     Qed.
-    (*
-    Lemma negative_call_rw:
-      forall p i j,
-      Negative (Call p j) i <-> Negative p j.
-    Proof.
-      split; intros. {
-        inversion_clear H. {
-          rewrite run_call_rw in *.
-          auto using negative_run_false.
-        }
-        rewrite loop_call_rw in *.
-        auto using negative_loop.
-      }
-      rewrite negative_alt_rw in H.
-      destruct H. {
-        apply negative_run_false.
-        rewrite run_call_rw.
-        assumption.
-      }
-      apply negative_loop.
-      rewrite loop_call_rw.
-      assumption.
-    Qed.
-*)
+
     Lemma run_true_or_negative:
       forall p,
       Run p true \/ Negative p.
@@ -506,12 +475,6 @@ Require Import Coq.Logic.Classical_Prop.
     decode_mach (encode_mach m) = m.
   Axiom encode_decode_mach_rw:
     forall w, encode_mach (decode_mach w) = w.
-  Axiom encode_mach_ext:
-    forall m1 m2,
-    encode_mach m1 = encode_mach m2 -> m1 = m2.
-  Axiom decode_mach_ext:
-    forall w1 w2,
-    decode_mach w1 = decode_mach w2 -> w1 = w2.
 
   (** Given a machine and a string, encodes the pair as a string.
       In the book, this corresponds to notation <M, w>. *)
@@ -535,46 +498,6 @@ Require Import Coq.Logic.Classical_Prop.
     rewrite decode_encode_pair_rw.
     rewrite decode_encode_mach_rw.
     reflexivity.
-  Qed.
-
-  Lemma decode_mach_input_ext:
-    forall i1 i2,
-    decode_mach_input i1 = decode_mach_input i2 ->
-    i1 = i2.
-  Proof.
-    unfold decode_mach_input.
-    intros.
-    destruct (decode_pair i1) as (M1, j1) eqn:R1.
-    destruct (decode_pair i2) as (M2, j2) eqn:R2.
-    inversion H; subst; clear H.
-    apply decode_mach_ext in H1.
-    subst.
-    rewrite <- R1 in R2.
-    apply decode_pair_ext in R2.
-    auto.
-  Qed.
-
-  Lemma decode_mach_input_rev:
-    forall w M i,
-    decode_mach_input w = (M, i) ->
-    w = encode_mach_input M i.
-  Proof.
-    intros.
-    rewrite <- decode_encode_mach_input_rw in H.
-    apply decode_mach_input_ext in H.
-    assumption.
-  Qed.
-
-  Lemma encode_mach_input_ext:
-    forall M M' i i',
-    encode_mach_input M i = encode_mach_input M' i' -> M = M' /\ i = i'.
-  Proof.
-    unfold encode_mach_input.
-    intros.
-    apply encode_pair_ext in H.
-    inversion H; subst; clear H.
-    apply encode_mach_ext in H1.
-    auto.
   Qed.
 
   (** Let us define an abbreviation of the above functions. *)
