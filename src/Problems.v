@@ -100,13 +100,13 @@ Section A_TM. (* ----------------------------------------------- *)
       assert (Hx := He).
     (* (Let us duplicate Heqr as we will need it later.) *)
     - eapply negator_accept in He; eauto.
-      eapply recognizes_run_reject in He; eauto.
+      eapply recognizes_run_false_to_not_in in He; eauto.
       contradict He.
       unfold A_tm.
       run_simpl_all.
       assumption.
     - eapply negator_reject in He; eauto.
-      eapply recognizes_run_accept in He; eauto.
+      eapply recognizes_run_true_to_in in He; eauto.
       (* He: Run (negator D) [[negator D]] accept *)
       unfold A_tm in *.
       run_simpl_all.
@@ -193,7 +193,7 @@ Section A_TM. (* ----------------------------------------------- *)
     assert (Hx := He). (* Let us duplicate assumption Hx *)
     - (* If p accepts itself *)
       rewrite (code_of_run_rw hp) in *.
-      eapply recognizes_run_accept in He; eauto.
+      eapply recognizes_run_true_to_in in He; eauto.
       (* That means that p is in co-SELF *)
       unfold compl, SELF_tm in *.
       (* Since p is in co-self, then p should reject itself, which is an absurd  *)
@@ -204,7 +204,7 @@ Section A_TM. (* ----------------------------------------------- *)
     - (* P rejects itself *)
       rewrite (code_of_negative_rw hp) in He.
       (* Thus, p is NOT in co-SELF *)
-      assert (~ compl SELF_tm [[ p ]]) by eauto using recognizes_inv_negative.
+      assert (~ compl SELF_tm [[ p ]]) by eauto using recognizes_negative_to_not_in.
       (* But we can also conclude that compl SELF_tm [[ p ]] *)
       contradict H.
       unfold compl, SELF_tm.

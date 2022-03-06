@@ -679,7 +679,7 @@ Require Import Coq.Logic.Classical_Prop.
 
   Section RecognizesRun.
 
-    Lemma recognizes_run_reject:
+    Lemma recognizes_run_false_to_not_in:
       forall p L i,
       Recognizes p L ->
       Run (p i) false ->
@@ -692,7 +692,7 @@ Require Import Coq.Logic.Classical_Prop.
       inversion Hx.
     Qed.
 
-    Lemma recognizes_run_accept:
+    Lemma recognizes_run_true_to_in:
       forall p L,
       Recognizes p L ->
       forall i,
@@ -704,7 +704,7 @@ Require Import Coq.Logic.Classical_Prop.
       assumption.
     Qed.
 
-    Lemma recognizes_not_accept:
+    Lemma recognizes_not_in_to_not_run_true:
       forall p L,
       Recognizes p L ->
       forall i,
@@ -713,11 +713,11 @@ Require Import Coq.Logic.Classical_Prop.
     Proof.
       intros.
       intros N.
-      assert (L i). { eapply recognizes_run_accept; eauto. }
+      assert (L i). { eapply recognizes_run_true_to_in; eauto. }
       contradiction.
     Qed.
 
-    Lemma recognizes_negative:
+    Lemma recognizes_not_in_to_negative:
       forall p L,
       Recognizes p L ->
       forall i,
@@ -726,10 +726,10 @@ Require Import Coq.Logic.Classical_Prop.
     Proof.
       intros.
       rewrite negative_rw.
-      eauto using recognizes_not_accept.
+      eauto using recognizes_not_in_to_not_run_true.
     Qed.
 
-    Lemma recognizes_accept:
+    Lemma recognizes_in_to_run_true:
       forall p L i,
       Recognizes p L ->
       L i ->
@@ -740,7 +740,7 @@ Require Import Coq.Logic.Classical_Prop.
       assumption.
     Qed.
 
-    Lemma recognizes_run_loop:
+    Lemma recognizes_loop_to_not_in:
       forall p L,
       Recognizes p L ->
       forall i,
@@ -754,7 +754,7 @@ Require Import Coq.Logic.Classical_Prop.
       eauto using run_to_halt.
     Qed.
 
-    Lemma recognizes_inv_negative:
+    Lemma recognizes_negative_to_not_in:
       forall p L,
       Recognizes p L ->
       forall i,
@@ -763,8 +763,8 @@ Require Import Coq.Logic.Classical_Prop.
     Proof.
       intros.
       inversion_clear H0.
-      - eauto using recognizes_run_reject.
-      - eauto using recognizes_run_loop.
+      - eauto using recognizes_run_false_to_not_in.
+      - eauto using recognizes_loop_to_not_in.
     Qed.
 
     Lemma recognizes_accept_rw {p} {L}:
@@ -772,9 +772,8 @@ Require Import Coq.Logic.Classical_Prop.
       forall i,
       Run (p i) true <-> L i.
     Proof.
-      split; intros.
-      - eapply recognizes_run_accept; eauto.
-      - eapply recognizes_accept; eauto.
+      unfold Recognizes.
+      auto.
     Qed.
 
     Lemma lang_equiv:
@@ -816,17 +815,17 @@ Require Import Coq.Logic.Classical_Prop.
       contradiction.
     Qed.
 
-    Lemma co_recognizes_run_accept:
+    Lemma co_recognizes_run_true_to_not_in:
       forall p L i,
       Recognizes p (compl L) ->
       Run (p i) true ->
       ~ L i.
     Proof.
       intros.
-      apply recognizes_run_accept with (L:=compl L) in H0; auto.
+      apply recognizes_run_true_to_in with (L:=compl L) in H0; auto.
     Qed.
 
-    Lemma co_recognizes_not_accept:
+    Lemma co_recognizes_in_to_not_run_true:
       forall p L i,
       Recognizes p (compl L) ->
       L i ->
@@ -838,7 +837,7 @@ Require Import Coq.Logic.Classical_Prop.
       contradiction.
     Qed.
 
-    Lemma co_recognizes_accept:
+    Lemma co_recognizes_not_in_to_run_true:
       forall p L i,
       Recognizes p (compl L) ->
       ~ L i ->
@@ -932,7 +931,7 @@ Require Import Coq.Logic.Classical_Prop.
     Proof.
       intros.
       apply decides_to_recognizes in H.
-      apply recognizes_run_reject with (p:=p); auto.
+      apply recognizes_run_false_to_not_in with (p:=p); auto.
     Qed.
 
     Lemma decides_run_accept:
@@ -943,7 +942,7 @@ Require Import Coq.Logic.Classical_Prop.
     Proof.
       intros.
       apply decides_to_recognizes in H.
-      apply recognizes_run_accept with (p:=p); auto.
+      apply recognizes_run_true_to_in with (p:=p); auto.
     Qed.
 
     Lemma decides_accept:
@@ -954,7 +953,7 @@ Require Import Coq.Logic.Classical_Prop.
     Proof.
       intros.
       apply decides_to_recognizes in H.
-      apply recognizes_accept with (L:=L); auto.
+      apply recognizes_in_to_run_true with (L:=L); auto.
     Qed.
 
     Lemma decider_to_halt:
@@ -1003,18 +1002,6 @@ Require Import Coq.Logic.Classical_Prop.
       auto.
     Qed.
 
-    Lemma c_decides_to_halt:
-      forall p f L,
-      Decides f L ->
-      CodeOf f p ->
-      forall i,
-      Halt (Call p i).
-    Proof.
-      intros.
-      rewrite (code_of_halt_rw H0).
-      eauto using decides_to_halt.
-    Qed.
-
     Lemma decider_to_not_loop:
       forall p,
       Decider p ->
@@ -1026,7 +1013,7 @@ Require Import Coq.Logic.Classical_Prop.
       auto using halt_to_not_loop.
     Qed.
 
-    Lemma decider_not_reject:
+    Lemma decider_not_run_false_to_run_true:
       forall p i,
       Decider p ->
       ~ Run (p i) false ->
@@ -1040,7 +1027,7 @@ Require Import Coq.Logic.Classical_Prop.
       intuition.
     Qed.
 
-    Lemma decider_not_accept:
+    Lemma decider_not_run_true_to_run_false:
       forall p i,
       Decider p ->
       ~ Run (p i) true ->
@@ -1064,7 +1051,7 @@ Require Import Coq.Logic.Classical_Prop.
       destruct H; assumption.
     Qed.
 
-    Lemma decides_reject:
+    Lemma decides_not_in_to_run_false:
       forall p L i,
       Decides p L ->
       ~ L i ->
@@ -1077,7 +1064,7 @@ Require Import Coq.Logic.Classical_Prop.
       destruct Ha as (b, Ha).
       destruct b; auto.
       contradict H0.
-      eapply recognizes_run_accept; eauto.
+      eapply recognizes_run_true_to_in; eauto.
     Qed.
 
     Lemma run_seq_rw:
@@ -1120,7 +1107,7 @@ Require Import Coq.Logic.Classical_Prop.
       split; intros. {
         eauto using decides_run_reject.
       }
-      eauto using decides_reject.
+      eauto using decides_not_in_to_run_false.
     Qed.
 
     Lemma decides_true_rw:

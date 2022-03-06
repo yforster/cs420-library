@@ -71,7 +71,7 @@ Section Defs.
         inversion H0; subst; clear H0.
         run_simpl_all.
       }
-      assert (Run (p i) false) by eauto using decides_reject.
+      assert (Run (p i) false) by eauto using decides_not_in_to_run_false.
       eapply run_seq; eauto.
       constructor.
     - apply decider_def.
@@ -278,9 +278,9 @@ Section Defs.
     Run (m1 i) false ->
     Run (m2 i) true.
   Proof.
-    intros.
-    apply recognizes_run_reject with (L:=L) in H1; auto.
-    apply co_recognizes_accept with (L:=L); auto.
+    eauto using
+      recognizes_run_false_to_not_in,
+      co_recognizes_not_in_to_run_true.
   Qed.
 
   Lemma recognizes_co_recognizes_disjoint:
@@ -297,16 +297,16 @@ Section Defs.
       (* Two cases are trivial. *)
       auto.
     - (* We have L i *)
-      assert (H_yes: L i) by (eapply recognizes_run_accept; eauto).
+      assert (H_yes: L i) by (eapply recognizes_run_true_to_in; eauto).
       (* But we also have ~ L i *)
       contradict H_yes.
-      eapply recognizes_run_accept with (L:=compl L) in Hb; eauto.
+      eapply recognizes_run_true_to_in with (L:=compl L) in Hb; eauto.
     - assert (~ L i). {
         (* (m1, i) is negative, and m1 recognizes L, thus  ~ L i *) 
-        eauto using recognizes_inv_negative.
+        eauto using recognizes_negative_to_not_in.
       }
       (* Since we have ~ L i and m2 recognizes L, thus (m2, i) returns true *)
-      assert (Run (m2 i) true). { eapply co_recognizes_accept; eauto. }
+      assert (Run (m2 i) true). { eapply co_recognizes_not_in_to_run_true; eauto. }
       (* But m2 i is negative *)
       run_simpl_all.
   Qed.
