@@ -1208,7 +1208,28 @@ Require Import Coq.Logic.Classical_Prop.
       rewrite negative_rw in H1; contradiction
     | [ H1: Run ?p _, H2: Loop ?p |- _ ] =>
       apply run_to_halt in H1;
-      rewrite loop_rw in H2; contradiction 
+      rewrite loop_rw in H2; contradiction
+
+    | [ H1: CodeOf _ ?p, H2: Run (Call ?p _) _ |- _ ] => 
+      rewrite (code_of_run_rw H1) in H2
+    | [ H1: CodeOf _ ?p |- context[Run (Call ?p _) _] ] => 
+      rewrite (code_of_run_rw H1)
+
+    | [ H1: CodeOf _ ?p, H2: Negative (Call ?p _) |- _ ] => 
+      rewrite (code_of_negative_rw H1) in H2
+    | [ H1: CodeOf _ ?p |- context[Negative (Call ?p _)] ] => 
+      rewrite (code_of_negative_rw H1)
+
+    | [ H1: CodeOf _ ?p, H2: Loop (Call ?p _) |- _ ] => 
+      rewrite (code_of_loop_rw H1) in H2
+    | [ H1: CodeOf _ ?p |- context[Loop (Call ?p _)] ] => 
+      rewrite (code_of_loop_rw H1)
+
+    | [ H1: CodeOf _ ?p, H2: Halt (Call ?p _) |- _ ] => 
+      rewrite (code_of_halt_rw H1) in H2
+    | [ H1: CodeOf _ ?p |- context[Halt (Call ?p _)] ] => 
+      rewrite (code_of_halt_rw H1)
+
     | [ H1: Halt ?p , H2: Loop ?p  |- _ ] =>
       rewrite loop_rw in H2; contradiction
     | [ H1: Run ?m ?r1, H2: Run ?m ?r2  |- _] =>

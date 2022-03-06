@@ -44,7 +44,6 @@ Section A_TM. (* ----------------------------------------------- *)
   Proof.
     unfold negator.
     intros p n co Hr.
-    rewrite (code_of_run_rw co) in Hr.
     run_simpl_all.
     inversion_clear Hr.
     destruct b1; run_simpl_all.
@@ -59,7 +58,6 @@ Section A_TM. (* ----------------------------------------------- *)
   Proof.
     unfold negator.
     intros p n co Hr.
-    rewrite (code_of_run_rw co) in Hr.
     run_simpl_all.
     inversion_clear Hr.
     destruct b1; run_simpl_all.
@@ -74,7 +72,6 @@ Section A_TM. (* ----------------------------------------------- *)
   Proof.
     unfold negator.
     intros d n cp cn N.
-    rewrite (code_of_loop_rw cn) in N.
     run_simpl_all.
     inversion_clear N.
     - apply decider_to_not_loop in H; auto.
@@ -94,7 +91,6 @@ Section A_TM. (* ----------------------------------------------- *)
     (* Now we construct a new Turing machine [negator] with D as a subroutine. *)
     (* What happens when we run [negator] with its own description <negator> as
       input? *)
-    destruct (code_of solve_A) as (s, Hs).
     destruct (code_of (negator solve_A)) as (n, Hn).
     destruct (run_exists (Call n [[n]]) ) as [([], He)|He];
       assert (Hx := He).
@@ -190,19 +186,17 @@ Section A_TM. (* ----------------------------------------------- *)
     destruct (code_of f) as (p, hp).
     (* By contradiction, assume that p recognizes co-SELF_TM *)
     destruct (run_true_or_negative (Call p (encode_mach p))) as [He|He];
+    run_simpl_all;
     assert (Hx := He). (* Let us duplicate assumption Hx *)
     - (* If p accepts itself *)
-      rewrite (code_of_run_rw hp) in *.
       eapply recognizes_run_true_to_in in He; eauto.
       (* That means that p is in co-SELF *)
       unfold compl, SELF_tm in *.
       (* Since p is in co-self, then p should reject itself, which is an absurd  *)
       contradict He.
       run_simpl_all.
-      rewrite (code_of_run_rw hp) in *.
       assumption.
     - (* P rejects itself *)
-      rewrite (code_of_negative_rw hp) in He.
       (* Thus, p is NOT in co-SELF *)
       assert (~ compl SELF_tm [[ p ]]) by eauto using recognizes_negative_to_not_in.
       (* But we can also conclude that compl SELF_tm [[ p ]] *)
@@ -360,7 +354,7 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
         unfold A_tm.
         destruct (decode_mach_input i) as (p, j) eqn:r1.
         assert (rw1: Run (Call p j) true <-> Run (Call s [[ inner i ]]) false). {
-          rewrite (code_of_run_rw hs).
+          run_simpl_all.
           erewrite decides_false_rw; eauto.
           split; intros. {
             intros N.
@@ -401,7 +395,7 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
     intros i.
     destruct (decode_mach_input i) as (p, j) eqn:hr1.
     apply halt_seq_alt. {
-      rewrite (code_of_halt_rw hs).
+      run_simpl_all.
       eauto using decides_to_halt.
     }
     intros.
