@@ -165,14 +165,12 @@ Import Morphisms.
       split.
       - apply recognizes_def.
         intros.
-        rewrite run_call_rw.
         rewrite (code_of_run_rw HR).
         rewrite (recognizes_rw Hr).
         rewrite (reduction_rw Hred).
         reflexivity.
       - apply decider_def.
         intros.
-        rewrite halt_call_rw.
         rewrite (code_of_halt_rw HR).
         auto using decider_to_halt.
     Qed.
@@ -191,7 +189,6 @@ Import Morphisms.
       apply recognizable_def with (p:= fun w => Call R (f w)).
       apply recognizes_def.
       intros.
-      rewrite run_call_rw. (* LHS: Remove the call *)
       rewrite (reduction_rw Hr). (* A i = B (f i) *)
       rewrite <- (recognizes_rw Ha). (* B (f i) = Run (M (f i)) (f i) true *)
       rewrite (code_of_run_rw hc). (* Run R (f i) true = Run (M (f i)) (f i) true *)
