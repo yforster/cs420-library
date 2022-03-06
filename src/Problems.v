@@ -349,46 +349,46 @@ Section E_TM. (* --------------------- Theorem 5.2 ------------------------- *)
         if b then Ret false else Ret true
     ).
     apply decides_def. {
-      apply recognizes_def; intros. {
-        (* Run implies in A_tm *)
-        unfold A_tm.
-        destruct (decode_mach_input i) as (p, j) eqn:r1.
-        assert (rw1: Run (Call p j) true <-> Run (Call s [[ inner i ]]) false). {
-          run_simpl_all.
-          erewrite decides_false_rw; eauto.
-          split; intros. {
-            intros N.
-            assert (N := N j).
-            run_simpl_all.
-            rewrite (closure_of_negative_rw Hr) in N.
-            rewrite r1 in *.
-            destruct (input_eq_dec j j); try contradiction.
-            rewrite negative_rw in *.
-            contradiction.
-          }
-          destruct (run_true_or_negative (Call p j)) as [Ht|Hf]; auto.
-          match goal with H:  ~ E_tm _ |- _ => contradict H end.
-          unfold E_tm.
-          intros k.
-          run_simpl_all.
-          rewrite (closure_of_negative_rw Hr).
-          rewrite r1.
-          destruct (input_eq_dec k j). {
-            subst.
-            assumption.
-          }
-          apply negative_ret.
+      apply recognizes_def; intros.
+      (* Run implies in A_tm *)
+      unfold A_tm.
+      destruct (decode_mach_input i) as (p, j) eqn:r1.
+      assert (rw1: Run (Call p j) true <-> Run (Call s [[ inner i ]]) false). {
+        run_simpl_all.
+        erewrite decides_false_rw; eauto.
+        unfold E_tm.
+        run_simpl.
+        split; intros. {
+          intros N.
+          specialize (N j).
+          rewrite (closure_of_negative_rw Hr) in N.
+          rewrite r1 in *.
+          destruct (input_eq_dec j j); try contradiction.
+          rewrite negative_rw in *.
+          contradiction.
         }
-        rewrite rw1; clear rw1.
-        split; intros hr. {
-          inversion_clear hr.
-          run_simpl_all.
-          destruct b1; run_simpl_all.
+        destruct (run_true_or_negative (Call p j)) as [Ht|Hf]; auto.
+        match goal with H: ~ (forall i, Negative _) |- _ =>
+          contradict H
+        end.
+        intros k.
+        rewrite (closure_of_negative_rw Hr) in *.
+        rewrite r1.
+        destruct (input_eq_dec k j). {
+          subst.
           assumption.
         }
-        apply run_seq with (b1:=false); auto.
-        constructor.
+        apply negative_ret.
       }
+      rewrite rw1; clear rw1.
+      split; intros hr. {
+        inversion_clear hr.
+        run_simpl_all.
+        destruct b1; run_simpl_all.
+        assumption.
+      }
+      apply run_seq with (b1:=false); auto.
+      constructor.
     }
     (* Prove that it halts *)
     apply decider_def.
