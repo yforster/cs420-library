@@ -20,6 +20,9 @@ test_script:
 # - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib\coq\user-contrib\Turing"
 #      "script": "Expand-7zipArchive -Overwrite Skip \"$dir\\$fname\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\""
 
-artifacts:
-  - path: _build/turing.zip
-    name: Turing
+for:
+- branches:
+    only: main
+  artifacts:
+    - path: _build/turing.zip
+      name: Turing
