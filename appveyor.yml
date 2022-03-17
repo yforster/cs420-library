@@ -1,25 +1,27 @@
 environment:
   scoop: c:\tools\scoop
 
-init:
-  - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
-  - ps: iwr -useb get.scoop.sh -outfile 'install.ps1'
-  - ps: .\install.ps1 -RunAsAdmin 
-  - ps: scoop install coq@2022.01.0
-
-# Install our Scoop script and try to compile our hello world.
-test_script:
-  - ps: scoop install .\scoop\turing.json
-  - ps: coqc .\scoop\Test.v
-
-artifacts:
-  - path: _build/turing.zip
-    name: Turing
-
-build_script:
-  - ps: dir
-  - ps: .\build.ps1
-
- branches:
+for:
+- branches:
     only: 
     - main
+
+  init:
+    - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
+    - ps: iwr -useb get.scoop.sh -outfile 'install.ps1'
+    - ps: .\install.ps1 -RunAsAdmin 
+    - ps: scoop install coq@2022.01.0
+
+  # Install our Scoop script and try to compile our hello world.
+  test_script:
+    - ps: scoop install .\scoop\turing.json
+    - ps: coqc .\scoop\Test.v
+
+  artifacts:
+    - path: _build/turing.zip
+      name: Turing
+
+  build_script:
+    - ps: dir
+    - ps: .\build.ps1
+
