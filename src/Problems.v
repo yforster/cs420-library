@@ -617,7 +617,7 @@ Section Rice. (* ----------------------------------------------------------- *)
     destruct Hp as (b, Hr).
     rewrite (run_seq_pre_rw Hr).
     reflexivity.
-Qed.
+  Qed.
 
   Inductive Nontrivial (P:input -> Prop) : Prop :=
     | non_trivial_def:
