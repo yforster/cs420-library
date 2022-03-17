@@ -512,7 +512,7 @@ End EQ_TM.
 Section Rice. (* ----------------------------------------------------------- *)
 
   (*
-    Proof by: Kleopatra Ginji, Tiago Cogumbreiro, and Yannick Forster
+    Proof by: Kleopatra Gjini, Tiago Cogumbreiro, and Yannick Forster
     Proof closely follows:
       http://homepages.gac.edu/~sskulrat/Courses/2011S-265/notes/ricesTheorem.pdf
 
