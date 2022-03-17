@@ -4,7 +4,7 @@ environment:
 init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
   - ps: iwr -useb get.scoop.sh -outfile 'install.ps1'
-  - .\install.ps1 -RunAsAdmin 
+  - ps: .\install.ps1 -RunAsAdmin 
   - ps: scoop install coq@2021.02.1
 
 build_script:
