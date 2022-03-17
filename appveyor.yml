@@ -22,7 +22,8 @@ test_script:
 
 for:
 - branches:
-    only: main
+    only: 
+    - main
   artifacts:
     - path: _build/turing.zip
       name: Turing
