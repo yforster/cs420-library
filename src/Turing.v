@@ -1116,9 +1116,9 @@ Require Import Coq.Logic.Classical_Prop.
       econstructor; eauto.
     Qed.
 
-    Lemma run_seq_pre_rw:
-      forall p q b b',
+    Lemma run_seq_pre_rw {p} {b'}:
       Run p b' ->
+      forall q b ,
       Run (Seq p q) b <-> Run (q b') b.
     Proof.
       intros.

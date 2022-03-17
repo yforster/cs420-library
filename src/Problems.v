@@ -536,15 +536,16 @@ Section Rice. (* ----------------------------------------------------------- *)
     apply HALT_tm_undecidable.
     (* Takes two parameters: runs the first parameter, followed by the second *)
     (* Construction of `seq` has the following description: 
-       M_w = "On input string x: 
-                a) Run M on w
-                b) If M halts, run T on x. If it accepts, accept. If it rejects, reject.", 
+       "On input string x: 
+          1. Run M on w
+          2. Run T on x.", 
        with M and T being Turing Machines and w and x string  inputs. *)
     destruct (closure_of (fun p x =>
       let (M, w) := decode_mach_input p in
       let T := decode_mach i in
-      mlet _ <- Call M w in Call T x )
-    ) as (seq, H_seq).
+      mlet _ <- Call M w in
+      Call T x 
+    )) as (seq, H_seq).
     (* The following turing machine  
        S = "On input <M, w>, where M is a TM and w is a string:
             1. Construct an encoding <M_w> of a TM M_w that works as M_w above,
@@ -573,46 +574,49 @@ Section Rice. (* ----------------------------------------------------------- *)
     rewrite (decides_true_rw P_spec).
     (* Now prove each side of the implication *)
     split; intros Hp. {
-      (* Suppose [[seq k]] is in P *)
+      (* Suppose [[seq k]] is in P,  *)
       clear HPi.
       (* Either M halts on w, or M loops on w. *)
       destruct (halt_or_loop (Call M w)) as [Hm|Hm]; auto.
       (* If it halts, we are done, so let us consider the former: M loops on w *)
-      (* We can shoiw that seq <<M,w>> loops on all input. L(M_w) = empty set *)
-      assert (Hmw : forall x, Loop (Call (seq k) x)). {
+      contradict Hx.
+      (* If we show that L(seq k) = L(ret false), then we can conclude this case,
+         as we already have P[[seq k]] *)
+      apply HEquiv with (M:= seq k); auto.
+      intros j.
+      split; intros; run_simpl_all.
+      (* We have that M,w loops, and that seq k j halts.
+         Recall that k = <M,w>, so we have a contradiction (as seq k j cannot
+         halt)
+       *)
+      (* Since, k = <M,w> loops, then we can show that `seq k j` also loops. *)
+      assert (Hmw : Loop (Call (seq k) j)). {
         intros.
         rewrite (closure_of_loop_rw H_seq).
         rewrite r1.
         apply loop_seq_l.
         assumption.
       }
-      contradict Hx.
-      (* L(M_w) = L(T_empty), then <T_empty> does not belong in P by supposition. Therefore,
-         by the second condition assumption <M_w> does not belong in P either. *)
-      apply HEquiv with (M:= seq k); auto.
-      intros j.
-      split; intros; run_simpl_all.
-      specialize (Hmw j).
       apply run_to_halt in H.
       run_simpl_all.
     }
-    (* Suppose M halts on w. *)
-    (* Running M an any input x is exactly like running T on the same input x. *)
+    (* From P [[i]] we can obtain P [[ seq k ]] *)
     apply HEquiv with (M:= decode_mach i).
     2: { run_simpl_all. assumption. }
+    (* Suppose M halts on w. *)
+    (* Running M an any input x is exactly like running T on the same input x. *)
     (* L(M_w) = L(T). <T> belongs in P, therefore, by the second condition assumption <M_w> 
        also belongs in P. *)
-    intros l; split; intros Hl.
-    (* R accepts <M_w>. Thus, S also accepts <M_w>. *)
-    + rewrite (closure_of_run_rw H_seq).
-      rewrite r1.
-      rewrite halt_rw in Hp.
-      destruct Hp as (b, Hr).
-      apply run_seq with b; auto.
-    + rewrite (closure_of_run_rw H_seq) in *.
-      rewrite r1 in *.
-      inversion_clear Hl.
-      assumption.
+    intros l.
+    (* unfold seq k l *)
+    rewrite (closure_of_run_rw H_seq).
+    rewrite r1.
+    (* simplify assumption *)
+    rewrite halt_rw in Hp.
+    (* Rewrite the first call *)
+    destruct Hp as (b, Hr).
+    rewrite (run_seq_pre_rw Hr).
+    reflexivity.
 Qed.
 
   Inductive Nontrivial (P:input -> Prop) : Prop :=
