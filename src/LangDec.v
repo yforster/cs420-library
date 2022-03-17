@@ -67,7 +67,7 @@ Section Defs.
     - unfold compl.
       split; intros. {
         intros N.
-        assert (Run (p i) true) by eauto using decides_accept.
+        assert (Run (p i) true) by eauto using decides_in_to_run_true.
         inversion H0; subst; clear H0.
         run_simpl_all.
       }

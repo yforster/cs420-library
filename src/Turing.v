@@ -260,6 +260,20 @@ Require Import Coq.Logic.Classical_Prop.
         assumption.
     Qed.
 
+
+    Lemma closure_of_halt_rw {p} {f}:
+      ClosureOf f p ->
+      forall j i, Halt (Call (p j) i) <-> Halt (f j i).
+    Proof.
+      intros.
+      repeat rewrite halt_rw.
+      split; intros (x, Hx); exists x.
+      - rewrite (closure_of_run_rw H) in Hx.
+        assumption.
+      - rewrite (closure_of_run_rw H).
+        assumption.
+    Qed.
+
     Lemma halt_or_loop:
       forall p,
       Halt p \/ Loop p.
@@ -355,6 +369,16 @@ Require Import Coq.Logic.Classical_Prop.
       intros.
       repeat rewrite loop_rw.
       repeat rewrite (code_of_halt_rw H).
+      reflexivity.
+    Qed.
+
+    Lemma closure_of_loop_rw {p} {f}:
+      ClosureOf f p ->
+      forall j i, Loop (Call (p j) i) <-> Loop (f j i).
+    Proof.
+      intros.
+      repeat rewrite loop_rw.
+      rewrite (closure_of_halt_rw H).
       reflexivity.
     Qed.
 
@@ -923,7 +947,7 @@ Require Import Coq.Logic.Classical_Prop.
       assumption.
     Qed.
 
-    Lemma decides_run_reject:
+    Lemma decides_run_false_to_not_in:
       forall p L i,
       Decides p L ->
       Run (p i) false ->
@@ -934,7 +958,7 @@ Require Import Coq.Logic.Classical_Prop.
       apply recognizes_run_false_to_not_in with (p:=p); auto.
     Qed.
 
-    Lemma decides_run_accept:
+    Lemma decides_run_true_to_in:
       forall p L i,
       Decides p L ->
       Run (p i) true ->
@@ -945,7 +969,7 @@ Require Import Coq.Logic.Classical_Prop.
       apply recognizes_run_true_to_in with (p:=p); auto.
     Qed.
 
-    Lemma decides_accept:
+    Lemma decides_in_to_run_true:
       forall p L i,
       Decides p L ->
       L i ->
@@ -1051,6 +1075,17 @@ Require Import Coq.Logic.Classical_Prop.
       destruct H; assumption.
     Qed.
 
+    Lemma decides_or :
+      forall p P, Decides p P -> forall i, P i \/ ~ P i. 
+    Proof.
+      intros.
+      destruct decides_to_run with (i:= i) (p:= p) (L:= P) as ([], Ha); auto.
+      - left.
+        apply decides_run_true_to_in with (p:= p); auto.
+      - right.
+          apply decides_run_false_to_not_in with (p:= p); auto.
+    Qed.
+
     Lemma decides_not_in_to_run_false:
       forall p L i,
       Decides p L ->
@@ -1105,21 +1140,20 @@ Require Import Coq.Logic.Classical_Prop.
       Run (f i) false <-> ~ P i.
     Proof.
       split; intros. {
-        eauto using decides_run_reject.
+        eauto using decides_run_false_to_not_in.
       }
       eauto using decides_not_in_to_run_false.
     Qed.
 
-    Lemma decides_true_rw:
-      forall f P,
+    Lemma decides_true_rw {f} {P}:
       Decides f P ->
       forall i,
       Run (f i) true <-> P i.
     Proof.
       split; intros. {
-        eapply decides_run_accept; eauto.
+        eapply decides_run_true_to_in; eauto.
       }
-      eauto using decides_accept.
+      eauto using decides_in_to_run_true.
     Qed.
 
     Lemma halt_seq_alt:

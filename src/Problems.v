@@ -29,9 +29,9 @@ Section A_TM. (* ----------------------------------------------- *)
             and if D rejects, accept.”
   *)
 
-  Definition negator solve_A :=
+  Definition negator solve_A_tm :=
     fun i =>
-      mlet b <- solve_A <[ decode_mach i, i ]> in
+      mlet b <- solve_A_tm <[ decode_mach i, i ]> in
       if b then Ret false
            else Ret true
     .
@@ -297,7 +297,7 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
       }
       destruct (decode_mach_input i) as (p, j) eqn:r1.
       apply run_seq with (b1:=true). {
-        apply decides_accept with (L:=HALT_tm); auto.
+        apply decides_in_to_run_true with (L:=HALT_tm); auto.
         unfold HALT_tm.
         rewrite r1.
         eauto using run_to_halt.
@@ -315,7 +315,7 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
     match goal with
     H: Run _ _ |- _ => rename H into Hc
     end.
-    apply decides_run_accept with (L:=HALT_tm) in Hc; eauto.
+    apply decides_run_true_to_in with (L:=HALT_tm) in Hc; eauto.
     unfold HALT_tm in *.
     rewrite r1 in *.
     assumption.
@@ -509,3 +509,163 @@ Section EQ_TM.
 
 End EQ_TM.
 
+Section Rice. (* ----------------------------------------------------------- *)
+
+  (*
+    Proof by: Kleopatra Ginji, Tiago Cogumbreiro, and Yannick Forster
+    Proof closely follows:
+      http://homepages.gac.edu/~sskulrat/Courses/2011S-265/notes/ricesTheorem.pdf
+
+  *)
+  (* To solve Rice's theorem, we created RiceP theorem.
+     Following Sipser, we are showing that P is decidable by deciding A_tm. Because 
+     A_tm is undecidable then P is also undecidable. However, in this proof, we show how to decide
+     HALT_tm instead of A_tm. *)
+
+  Theorem RiceP (P : input -> Prop) :
+    forall i,
+    P i ->
+    (forall M M' : machine, (forall i, Run (Call M i) true <-> Run (Call M' i) true) ->
+                        P (encode_mach M) <-> P (encode_mach M')) ->
+     ~ P [[compile(Ret false)]] ->
+     ~ Decidable P.
+  Proof.
+    (* Rp is the decider. *)
+    intros i HPi HEquiv Hx (P_impl, P_spec).
+    (* Decide HALT_tm. *)
+    apply HALT_tm_undecidable.
+    (* Takes two parameters: runs the first parameter, followed by the second *)
+    (* Construction of `seq` has the following description: 
+       M_w = "On input string x: 
+                a) Run M on w
+                b) If M halts, run T on x. If it accepts, accept. If it rejects, reject.", 
+       with M and T being Turing Machines and w and x string  inputs. *)
+    destruct (closure_of (fun p x =>
+      let (M, w) := decode_mach_input p in
+      let T := decode_mach i in
+      mlet _ <- Call M w in Call T x )
+    ) as (seq, H_seq).
+    (* The following turing machine  
+       S = "On input <M, w>, where M is a TM and w is a string:
+            1. Construct an encoding <M_w> of a TM M_w that works as M_w above,
+            2. Run P_impl on <M_w>
+            3. If (2) accepts, accept. If (2) rejects, reject." *)
+    apply decidable_def with (p:=
+      fun (p:input) => 
+      P_impl [[seq p]]
+    ).
+    apply decides_def.
+    2: {
+      (*
+        It is trivial to show that our program halts for all inputs,
+        so we show it first.
+      *)
+      apply decider_def.
+      intros k.
+      eapply decides_to_halt; eauto.
+    }
+    (* We now show that our program recognizes HALT_tm *)
+    apply recognizes_def.
+    intros k.
+    (* Simplify our goal to: P [[seq k]] <-> Halt (Call M w) *)
+    unfold HALT_tm.
+    destruct (decode_mach_input k) as (M, w) eqn: r1.
+    rewrite (decides_true_rw P_spec).
+    (* Now prove each side of the implication *)
+    split; intros Hp. {
+      (* Suppose [[seq k]] is in P *)
+      clear HPi.
+      (* Either M halts on w, or M loops on w. *)
+      destruct (halt_or_loop (Call M w)) as [Hm|Hm]; auto.
+      (* If it halts, we are done, so let us consider the former: M loops on w *)
+      (* We can shoiw that seq <<M,w>> loops on all input. L(M_w) = empty set *)
+      assert (Hmw : forall x, Loop (Call (seq k) x)). {
+        intros.
+        rewrite (closure_of_loop_rw H_seq).
+        rewrite r1.
+        apply loop_seq_l.
+        assumption.
+      }
+      contradict Hx.
+      (* L(M_w) = L(T_empty), then <T_empty> does not belong in P by supposition. Therefore,
+         by the second condition assumption <M_w> does not belong in P either. *)
+      apply HEquiv with (M:= seq k); auto.
+      intros j.
+      split; intros; run_simpl_all.
+      specialize (Hmw j).
+      apply run_to_halt in H.
+      run_simpl_all.
+    }
+    (* Suppose M halts on w. *)
+    (* Running M an any input x is exactly like running T on the same input x. *)
+    apply HEquiv with (M:= decode_mach i).
+    2: { run_simpl_all. assumption. }
+    (* L(M_w) = L(T). <T> belongs in P, therefore, by the second condition assumption <M_w> 
+       also belongs in P. *)
+    intros l; split; intros Hl.
+    (* R accepts <M_w>. Thus, S also accepts <M_w>. *)
+    + rewrite (closure_of_run_rw H_seq).
+      rewrite r1.
+      rewrite halt_rw in Hp.
+      destruct Hp as (b, Hr).
+      apply run_seq with b; auto.
+    + rewrite (closure_of_run_rw H_seq) in *.
+      rewrite r1 in *.
+      inversion_clear Hl.
+      assumption.
+Qed.
+
+  Inductive Nontrivial (P:input -> Prop) : Prop :=
+    | non_trivial_def:
+      forall i j,
+      P i ->
+      ~ P j ->
+      Nontrivial P
+    .
+
+
+  Theorem Rice (P : input -> Prop) (nt: Nontrivial P):
+    (forall M M' : machine, (forall i, Run (Call M i) true <-> Run (Call M' i) true) ->
+                        P (encode_mach M) <-> P (encode_mach M')) ->
+    ~ Decidable P.
+  Proof.
+    intros HEquiv Hp.
+    inversion nt as [i j Hpi Hpj].
+    (* If we can show that ~P is undecidable then we can conclude that P is undecidable since
+       decidable languages are closed under complementation*)
+    assert (Hx: P [[compile (Ret false)]] \/ ~P [[compile (Ret false)]]). {
+      destruct Hp.
+      eapply decides_or; eauto.
+    }
+    (* The ~P [[Ret false]] case. *)
+    destruct Hx as [Hx|Hx]. 2: {
+      contradict Hp.
+      (* Apply RiceP, see theorem and details above. *)
+      eapply RiceP; eauto.
+    }
+    (* We assume the case where <T_empty> does not belong to the complement of P. *)
+    assert (H: ~ Decidable (compl P)). {
+      (* Apply the theorem RiceP in the case of the complement as we did before for P. *)
+      apply RiceP with j.
+       - unfold compl.
+         assumption.
+       - intros; unfold compl.
+         split; intros.
+         + intros N.
+           contradict H0.
+           apply HEquiv with (M:= M'); auto.
+           intros x.
+           rewrite H; reflexivity.
+         + contradict H0.
+           apply HEquiv with (M:= M).
+           * intros x.
+             rewrite H; reflexivity.
+           * assumption.
+       - intros N.
+         contradiction.
+    }
+    apply decidable_to_compl in Hp.
+    contradiction.
+  Qed.
+
+End Rice. (* ---------------------------------------------------------------- *)
