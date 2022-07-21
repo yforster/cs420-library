@@ -85,16 +85,17 @@ Section A_TM. (* ----------------------------------------------- *)
     ~ Decidable A_tm.
   Proof.
     intros N.
-    (* Suppose that D is a decider for A_TM. *)
-    destruct N as (solve_A, is_dec).
-    destruct is_dec as (Hrec, Hdec).
+    (* Suppose that `solve_A` is a decider for A_TM, where `Hrec` is the proof
+       that `solve_A` recognizes A_tm, and `Hdec` is the proof that `solve_A`
+       is a decider. *)
+    destruct N as (solve_A, (Hrec, Hdec)).
     (* Now we construct a new Turing machine [negator] with D as a subroutine. *)
     (* What happens when we run [negator] with its own description <negator> as
       input? *)
     destruct (code_of (negator solve_A)) as (n, Hn).
-    destruct (run_exists (Call n [[n]]) ) as [([], He)|He];
-      assert (Hx := He).
+    destruct (run_exists (Call n [[n]]) ) as [([], He)|He].
     (* (Let us duplicate Heqr as we will need it later.) *)
+    all: assert (Hx := He).
     - eapply negator_accept in He; eauto.
       eapply recognizes_run_false_to_not_in in He; eauto.
       contradict He.
@@ -628,8 +629,10 @@ Section Rice. (* ----------------------------------------------------------- *)
     .
 
 
-  Theorem Rice (P : input -> Prop) (nt: Nontrivial P):
-    (forall M M' : machine, (forall i, Run (Call M i) true <-> Run (Call M' i) true) ->
+  Theorem Rice
+    (P : input -> Prop)
+    (nt: Nontrivial P):
+    (forall M M', (forall i, Run (Call M i) true <-> Run (Call M' i) true) ->
                         P (encode_mach M) <-> P (encode_mach M')) ->
     ~ Decidable P.
   Proof.
