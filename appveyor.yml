@@ -1,28 +1,33 @@
 environment:
   scoop: c:\tools\scoop
+  coq_version: 2022.04.0
 
-# init:
-#   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
-#   - ps: iwr -useb get.scoop.sh -outfile 'install.ps1'
-#   - ps: .\install.ps1 -RunAsAdmin
-#   - ps: scoop install coq@2022.04.0
+init:
+  - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
+  - ps: iwr -useb get.scoop.sh -outfile 'install.ps1'
+  - ps: .\install.ps1 -RunAsAdmin 
+  - ps: scoop install coq@$coq_version
 
-# build_script:
-#   - ps: dir
-#   - ps: .\build.ps1
+build_script:
+  - ps: dir
+  - ps: .\build.ps1
 
-# for:
-# - branches:
-#     only:
-#     - main
+# Install our Scoop script and try to compile our hello world.
+# test_script:
+#   - ps: scoop install .\scoop\turing.json
+#   - ps: coqc .\scoop\Test.v
 
-#   # Install our Scoop script and try to compile our hello world.
-#   test_script:
-#     - ps: scoop install .\scoop\turing.json
-#     - ps: coqc .\scoop\Test.v
+# - ps: dir "~\scoop\apps\turing\$coq_version\"
+# - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib\coq\user-contrib\Turing"
+#      "script": "Expand-7zipArchive -Overwrite Skip \"$dir\\$fname\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\""
 
-#   artifacts:
-#     - path: _build/turing.zip
-#       name: Turing
+artifacts:
+  - path: _build/turing.zip
+    name: Turing
+
+
+environment:
+  scoop: c:\tools\scoop
+
 
 
