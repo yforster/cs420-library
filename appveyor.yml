@@ -6,6 +6,7 @@ environment:
 init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
   - ps: iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+  - ps: scoop install coq@$env:coq_version 7zip
 
 build_script:
   - ps: dir
