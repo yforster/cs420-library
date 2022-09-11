@@ -1,12 +1,13 @@
 environment:
   scoop: c:\tools\scoop
   coq_version: 2022.04.0
+  installer: c:\tools\install-scoop.ps1
 
 init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
-  - ps: irm get.scoop.sh -outfile 'c:\tools\install-scoop.ps1'
-  - ps: c:\tools\install.ps1 -RunAsAdmin
-  - ps: Remove-Item 'c:\tools\install-scoop.ps1' -Force
+  - ps: irm get.scoop.sh -outfile $env:installer
+  - ps: $env:installer -RunAsAdmin
+  - ps: Remove-Item $env:installer -Force
 
 build_script:
   - ps: dir
