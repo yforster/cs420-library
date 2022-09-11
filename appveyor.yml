@@ -4,9 +4,9 @@ environment:
 
 init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
-  - ps: irm get.scoop.sh | iex
-  - ps: dir $env:APPVEYOR_BUILD_FOLDER
-  - ps: scoop install coq@$env:coq_version
+  - ps: iwr -useb get.scoop.sh -outfile 'c:\tools\install-scoop.ps1'
+  - ps: c:\tools\install.ps1 -RunAsAdmin
+  - ps: Remove-Item 'c:\tools\install-scoop.ps1' -Force
 
 build_script:
   - ps: dir
