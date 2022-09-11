@@ -26,8 +26,5 @@ artifacts:
     name: Turing
 
 
-environment:
-  scoop: c:\tools\scoop
-
 
 
