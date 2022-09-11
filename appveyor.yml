@@ -6,8 +6,11 @@ init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
   - ps: iwr -useb get.scoop.sh -outfile 'install.ps1'
   - ps: .\install.ps1 -RunAsAdmin 
+  # Make sure we delete this directory before we continue,
+  # Otherwise, git clone fails and the build aborts
+  - ps: dir $env:APPVEYOR_BUILD_FOLDER
+  - ps: Remove-Item C:\projects\turing -Recurse -Force
   - ps: scoop install coq@$env:coq_version
-  - ps: dir C:\projects\turing
 
 build_script:
   - ps: dir
