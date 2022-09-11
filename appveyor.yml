@@ -7,9 +7,9 @@ init:
   - ps: .\install.ps1 -RunAsAdmin
   - ps: scoop install coq@2022.04.0
 
-build_script:
-  - ps: dir
-  - ps: .\build.ps1
+# build_script:
+#   - ps: dir
+#   - ps: .\build.ps1
 
 # for:
 # - branches:
