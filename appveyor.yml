@@ -6,10 +6,6 @@ environment:
 init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
   - ps: iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
-  # - ps: irm get.scoop.sh -outfile $env:installer
-  # - ps: dir $env:installer
-  # - ps: $env:installer -RunAsAdmin
-  # - ps: Remove-Item $env:installer -Force
 
 build_script:
   - ps: dir
