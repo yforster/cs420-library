@@ -4,7 +4,7 @@ environment:
 
 init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
-  - ps: iwr -useb get.scoop.sh -outfile 'c:\tools\install-scoop.ps1'
+  - ps: irm get.scoop.sh -outfile 'c:\tools\install-scoop.ps1'
   - ps: c:\tools\install.ps1 -RunAsAdmin
   - ps: Remove-Item 'c:\tools\install-scoop.ps1' -Force
 
