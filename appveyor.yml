@@ -6,7 +6,7 @@ init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
   - ps: iwr -useb get.scoop.sh -outfile 'install.ps1'
   - ps: .\install.ps1 -RunAsAdmin 
-  - ps: scoop install coq@$coq_version
+  - ps: scoop install coq@$env:coq_version
 
 build_script:
   - ps: dir
@@ -17,7 +17,7 @@ build_script:
 #   - ps: scoop install .\scoop\turing.json
 #   - ps: coqc .\scoop\Test.v
 
-# - ps: dir "~\scoop\apps\turing\$coq_version\"
+# - ps: dir "~\scoop\apps\turing\$env:coq_version\"
 # - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib\coq\user-contrib\Turing"
 #      "script": "Expand-7zipArchive -Overwrite Skip \"$dir\\$fname\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\""
 
