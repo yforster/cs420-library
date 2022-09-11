@@ -4,8 +4,8 @@ environment:
 init:
   - ps: (Get-PSProvider FileSystem).Home = 'c:\tools\'
   - ps: iwr -useb get.scoop.sh -outfile 'install.ps1'
-  - ps: .\install.ps1 -RunAsAdmin 
-  - ps: scoop install coq@2022.01.0
+  - ps: .\install.ps1 -RunAsAdmin
+  - ps: scoop install coq@2022.04.0
 
 build_script:
   - ps: dir
@@ -13,7 +13,7 @@ build_script:
 
 for:
 - branches:
-    only: 
+    only:
     - main
 
   # Install our Scoop script and try to compile our hello world.
