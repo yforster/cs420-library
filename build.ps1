@@ -93,9 +93,14 @@ function Infer-Deps {
 
 #$Deps = Infer-Deps
 #Write-Host $Deps.Keys
-$coqc = $env:COQC -eq $null ? "coqc" : $env:COQC
-$zip = $env:ZIP -eq $null ? "7z" : $env:ZIP
-
+$coqc = "coqc"
+if ($env:COQC -ne $null) {
+    $coqc = $env:COQC
+}
+$zip = "7z"
+if ($env:ZIP -ne $null) {
+    $zip = $env:ZIP
+}
 
 foreach($line in $Proj.Files.values) {
   $Command = "$coqc $($Proj.Args) $line"
