@@ -139,6 +139,6 @@ $j = '
 }
 ' | ConvertFrom-Json
 $j.hash = $h.Hash.ToLower()
-$j.url = "https://gitlab.com/umb-svl/turing/-/jobs/artifacts/main/raw/_build/turing.zip?job=win"
+$j.url = "https://gitlab.com/umb-svl/turing/-/jobs/artifacts/main/raw/turing.zip?job=win"
 $j | ConvertTo-Json | Tee-Object turing.json 
 popd

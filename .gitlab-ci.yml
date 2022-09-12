@@ -4,8 +4,10 @@ image: registry.gitlab.com/umb-svl/turing/base:wine
 win:
   script:
     - ZIP=7zz COQC="wine /opt/coq/bin/coqc.exe" pwsh build.ps1
+    - mv _build/turing.* .
   artifacts:
     paths:
-      - _build/turing.zip
+      - turing.zip
+      - turing.json
 
 
