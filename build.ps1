@@ -93,9 +93,12 @@ function Infer-Deps {
 
 #$Deps = Infer-Deps
 #Write-Host $Deps.Keys
+$coqc = $env:COQC -eq $null ? "coqc" : $env:COQC
+$zip = $env:ZIP -eq $null ? "7z" : $env:ZIP
+
 
 foreach($line in $Proj.Files.values) {
-  $Command = "coqc $($Proj.Args) $line"
+  $Command = "$coqc $($Proj.Args) $line"
   Write-Host $Command
   # Compile each file
   Invoke-Expression $Command
@@ -107,7 +110,7 @@ foreach($line in $Proj.Files.values) {
 
 $out_file = Join-Path -Path (Resolve-Path $build_dir) -ChildPath "turing.zip"
 pushd $build_dir
-$Command = "7z a -r -bb -tzip $out_file Turing"
+$Command = "$zip a -r -bb -tzip $out_file Turing"
 dir Turing
 Write-Host $Command
 Invoke-Expression $Command

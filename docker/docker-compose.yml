@@ -1,0 +1,7 @@
+version: "3.8"
+services:
+    base:
+        build:
+            dockerfile: Dockerfile
+            context: .
+        image: registry.gitlab.com/umb-svl/turing/base:wine
