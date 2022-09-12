@@ -13,9 +13,9 @@ build_script:
   - ps: .\build.ps1
 
 # Install our Scoop script and try to compile our hello world.
-test_script:
-  - ps: scoop install "https://gitlab.com/umb-svl/turing/-/jobs/artifacts/main/raw/turing.json?job=win"
-  - ps: coqc .\scoop\Test.v
+# test_script:
+#   - ps: scoop install "https://gitlab.com/umb-svl/turing/-/jobs/artifacts/main/raw/turing.json?job=win"
+#   - ps: coqc .\scoop\Test.v
 
 # - ps: dir "~\scoop\apps\turing\$env:coq_version\"
 # - ps: dir "$env:SCOOP\apps\coq\8.11.0\lib\coq\user-contrib\Turing"
