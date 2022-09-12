@@ -114,9 +114,31 @@ foreach($line in $Proj.Files.values) {
 }
 
 $out_file = Join-Path -Path (Resolve-Path $build_dir) -ChildPath "turing.zip"
+$out_json = Join-Path -Path (Resolve-Path $build_dir) -ChildPath "turing.json"
 pushd $build_dir
 $Command = "$zip a -r -bb -tzip $out_file Turing"
 dir Turing
 Write-Host $Command
 Invoke-Expression $Command
+$h = Get-FileHash $out_file -Algorithm SHA256
+$j = '
+{
+    "homepage": "https://gitlab.com/cogumbreiro/turing/",
+    "description": "The foundations of the Theory of Computation formalized in Coq.",
+    "license": "MIT",
+    "version": "2022.09.1",
+    "url": "https://cogumbreiro.github.io/teaching/cs420/f22/turing.zip",
+    "hash": "",
+    "depends": "coq@2022.04.0",
+    "installer": {
+      "script": "Copy-Item \"$dir\\Turing\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\" -Force -Recurse"
+    },
+    "uninstaller": {
+      "script": "Remove-Item \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\\Turing\""
+    }
+}
+' | ConvertFrom-Json
+$j.hash = $h.Hash.ToLower()
+$j.url = "https://gitlab.com/umb-svl/turing/-/jobs/artifacts/main/raw/_build/turing.zip?job=win"
+$j | ConvertTo-Json | Tee-Object turing.json 
 popd
