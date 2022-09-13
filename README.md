@@ -20,7 +20,8 @@ to access the teaching material.
 * Step 1. Install [scoop](https://scoop.sh/)
 * Step 2. Open powershell and run:
 ```
-> scoop install "https://gitlab.com/umb-svl/turing/-/jobs/artifacts/main/raw/turing.json?job=win"
+> irm "https://gitlab.com/umb-svl/turing/-/jobs/artifacts/main/raw/turing.json?job=win" -outfile turing.json
+> scoop install turing.json
 ```
 
 ## Unix-based OS
