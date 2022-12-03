@@ -495,7 +495,7 @@ Module Examples.
     (* Adversary: picks p >= 1 *)
     intros p Hge.
     (* We pick a string *)
-    exists (pow1 "a" p ++ pow1 "b" p) % list.
+    exists (pow1 "a" p ++ pow1 "b" p) .
     repeat split.
     - unfold Examples.L4, In.
       exists p.

@@ -186,9 +186,9 @@ Section A_TM. (* ----------------------------------------------- *)
     destruct N as (f, Hr).
     destruct (code_of f) as (p, hp).
     (* By contradiction, assume that p recognizes co-SELF_TM *)
-    destruct (run_true_or_negative (Call p (encode_mach p))) as [He|He];
-    run_simpl_all;
-    assert (Hx := He). (* Let us duplicate assumption Hx *)
+    destruct (run_true_or_negative (Call p (encode_mach p))) as [He|He].
+    all: run_simpl_all.
+    all: assert (Hx := He). (* Let us duplicate assumption Hx *)
     - (* If p accepts itself *)
       eapply recognizes_run_true_to_in in He; eauto.
       (* That means that p is in co-SELF *)
@@ -290,20 +290,20 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
     ).
     apply decides_def. {
       unfold A_tm.
-      constructor; intros Ha. {
-        destruct (decode_mach_input i) as (p, j) eqn:r1.
-        inversion Ha; subst; clear Ha.
-        destruct b1; run_simpl_all.
-        assumption.
-      }
-      destruct (decode_mach_input i) as (p, j) eqn:r1.
-      apply run_seq with (b1:=true). {
-        apply decides_in_to_run_true with (L:=HALT_tm); auto.
-        unfold HALT_tm.
-        rewrite r1.
-        eauto using run_to_halt.
-      }
-      assumption.
+      constructor.
+      all: intros Ha.
+      all: destruct (decode_mach_input i) as (p, j) eqn:r1.
+      - inversion Ha; subst; clear Ha.
+        destruct b1.
+        + assumption.
+        + inversion H4.
+      - (* Call <p, i> = true -> Halt <p, i> *)
+        apply run_seq with (b1:=true).
+        + apply decides_in_to_run_true with (L:=HALT_tm); auto.
+          unfold HALT_tm.
+          rewrite r1.
+          eauto using run_to_halt.
+        + assumption.
     }
     apply decider_def.
     intros.
@@ -312,14 +312,13 @@ Section HALT_TM. (* ---------------------- Theorem 5.1 --------------------- *)
       eauto using decides_to_halt.
     }
     intros.
-    destruct b; try constructor.
-    match goal with
-    H: Run _ _ |- _ => rename H into Hc
-    end.
-    apply decides_run_true_to_in with (L:=HALT_tm) in Hc; eauto.
-    unfold HALT_tm in *.
-    rewrite r1 in *.
-    assumption.
+    destruct b.
+    - apply decides_run_true_to_in with (L:=HALT_tm) in H0.
+      + unfold HALT_tm in *.
+        rewrite r1 in *.
+        assumption.
+      + assumption.
+    - constructor.
   Qed.
 
 End HALT_TM. (* ------------------------------------------------------------ *)
