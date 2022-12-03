@@ -129,7 +129,7 @@ $j = '
     "version": "2022.09.1",
     "url": "https://cogumbreiro.github.io/teaching/cs420/f22/turing.zip",
     "hash": "",
-    "depends": "coq@2022.04.0",
+    "depends": "coq@2022.04.1",
     "installer": {
       "script": "Copy-Item \"$dir\\Turing\" \"$(appdir coq $global)\\current\\lib\\coq\\user-contrib\" -Force -Recurse"
     },
