@@ -1,6 +1,6 @@
 environment:
   scoop: c:\tools\scoop
-  coq_version: 2022.04.0
+  coq_version: 2022.04.1
   installer: c:\tools\install-scoop.ps1
 
 init:
