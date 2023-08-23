@@ -164,7 +164,7 @@ Section Defs.
         *)
         destruct b; run_simpl_all.
         assert (Ha: Negative (Call m1 i)). { auto using negative_loop. }
-        rewrite (disjoint_run_true_2_rw _ _ (Hr i)) in *.
+        eapply disjoint_run_true_2_rw in Ha. 2: eauto.
         run_simpl_all.
       * (* Both machines terminated at the same time *)
         destruct b1; run_simpl_all.
@@ -174,7 +174,7 @@ Section Defs.
       assert (Run (Call m2 i) false). {
         rewrite halt_rw in *.
         destruct He as ([],He); auto.
-        rewrite <- (disjoint_run_true_1_rw _ _ (Hr i)) in H.
+        eapply disjoint_run_true_1_rw in H. 2: eauto.
         (* Contradiction: run m2 and neg m2 *)
         run_simpl_all.
       }

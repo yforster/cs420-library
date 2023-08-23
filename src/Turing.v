@@ -1,25 +1,35 @@
 Require Import Coq.Setoids.Setoid.
 Require Import Coq.Bool.Bool.
 Require Import Coq.Logic.Classical_Prop.
+Require Import Coq.Arith.Cantor.
+From Undecidability Require Import L_facts L.Datatypes.LNat  L.Datatypes.LBool Extract Eval.
+From SyntheticComputability Require Import Models.CT.
 
   (** These are the assumptions of our theory: *)
   (** We leave the input and the machine as unspecified data types. *)
-  Parameter input: Type.
-  Axiom input_inhabited: input.
+  Definition input := nat.
+  Definition input_inhabited := 0.
   (** Equality over the input is decidable. *)
-  Parameter input_eq_dec: forall x y: input, {x = y} + {x <> y}.
-  Parameter machine: Type.
+  Lemma input_eq_dec: forall x y: input, {x = y} + {x <> y}.
+  Proof. apply PeanoNat.Nat.eq_dec. Qed.
 
   (** Let us say we have a function that can encode and decode a pair of
       inputs. *)
-  Parameter decode_pair : input -> (input * input).
-  Parameter encode_pair: (input * input) -> input.
-  Axiom decode_encode_pair_rw:
+  Definition decode_pair : input -> (input * input) :=
+    of_nat.
+
+  Definition encode_pair: (input * input) -> input :=
+    to_nat.
+
+  Lemma decode_encode_pair_rw:
     forall p,
     decode_pair (encode_pair p) = p.
-  Axiom encode_decode_pair_rw:
+  Proof. apply cancel_of_to. Qed.
+
+  Lemma encode_decode_pair_rw:
     forall w,
     encode_pair (decode_pair w) = w.
+  Proof. apply cancel_to_of. Qed.
 
   (** A language is a function that given an input (a word) holds if, and only if,
       that word is in the language. Thus, [L w] is the same as saying $w \in L$.
@@ -27,17 +37,39 @@ Require Import Coq.Logic.Classical_Prop.
 
   Definition lang := input -> Prop.
 
-  (** We can run a machine and obtain its run result. *)
-  Parameter Exec: machine -> input -> bool -> Prop.
+  Definition machine :=
+    { s : term | closed s}.
+  Coercion term_of_machine := @proj1_sig _ _ : machine -> term.
 
-  Parameter exec_fun: forall m i b1 b2,
+  (** We can run a machine and obtain its run result. *)
+  Definition Exec: machine -> input -> bool -> Prop :=
+    fun s n b => eval (app s (enc n)) (enc (if b then 0 else 1)).
+
+  Lemma exec_fun: forall m i b1 b2,
     Exec m i b1 ->
     Exec m i b2 ->
     b1 = b2.
+  Proof.
+    intros m i b1 b2 H1 H2.
+    apply bool_enc_inj.
 
-  Parameter exec_exists:
+  (*   rewrite <- H1' in H2'. *)
+  (*   destruct b1, b2; cbn in *; firstorder congruence. *)
+  (* Qed. *)
+  Admitted.
+
+  Definition exec_exists:
     forall m i,
     (exists b, Exec m i b) \/ (forall b, ~ Exec m i b).
+  Proof.
+  Admitted.
+  (*   intros [s Hs] i. unfold Exec. cbn. *)
+  (*   destruct (classic (exists t, app s (enc i) ⇓ t)) as [[t H] | H]. *)
+  (*   - destruct (term_eq_dec t (enc true)). *)
+  (*     + subst. left. exists true. exists (enc true). split. eauto. firstorder. *)
+  (*     + left. exists false. exists t. split. eauto. firstorder congruence. *)
+  (*   - right. intros ? ?. firstorder. *)
+  (* Qed. *)
 
   Inductive prog :=
     (**
@@ -80,6 +112,40 @@ Require Import Coq.Logic.Classical_Prop.
     Run p b1 ->
     Run (q b1) b2 ->
     Run (Seq p q) b2.
+
+  Lemma run_seq_rw:
+    forall p q b,
+      Run (Seq p q) b <-> (
+                          (exists b', Run p b' /\ Run (q b') b)
+                        ).
+  Proof.
+    split; intros. {
+      inversion_clear H.
+      destruct b; exists b1; intuition.
+    }
+    destruct H as (b', (Ha,Hb)).
+    econstructor; eauto.
+  Qed.
+
+  Lemma run_call_rw:
+    forall m i b,
+      Run (Call m i) b <-> Exec m i b.
+  Proof.
+    split; intros. {
+      now inversion_clear H.
+    }
+    econstructor; eauto.
+  Qed.
+
+  Lemma run_ret_rw:
+    forall b b',
+      Run (Ret b) b' <-> b = b'.
+  Proof.
+    split; intros. {
+      now inversion_clear H.
+    }
+    subst. econstructor.
+  Qed.
 
   Inductive Halt : prog -> Prop :=
   | halt_ret:
@@ -129,12 +195,175 @@ Require Import Coq.Logic.Classical_Prop.
 
   (** We define a notation for sequencing. *)
   Notation "'mlet' x <- e 'in' c" := (Seq e (fun x => c)) (at level 60, right associativity).
+
   Definition ClosureOf (f:input -> input -> prog) (c:input -> machine) :=
     forall param i b, Run (f param i) b <-> Exec (c param) i b.
 
-  Axiom closure_of :
-    forall p : input -> input -> prog,
-    exists R, ClosureOf p R.
+
+  Axiom ct : CT_L.
+
+  Import L_Notations.
+
+  Fixpoint eqb (s t : term) {struct s} :=
+    match s, t with
+    | lam s, lam t => eqb s t
+    | app s1 s2, app t1 t2 => eqb s1 t1 && eqb s2 t2
+    | var n1, var n2 => Nat.eqb n1 n2
+    | _, _ => false
+    end.
+
+  Lemma eqb_spec s t : reflect (s = t) (eqb s t).
+  Proof.
+    induction s in t |- *; destruct t; cbn; try (now econstructor; congruence).
+    - destruct (Nat.eqb_spec n n0); econstructor; congruence.
+    - destruct (IHs1 t1), (IHs2 t2); econstructor; congruence.
+    - destruct (IHs t); econstructor; congruence.
+  Qed.
+
+  Fixpoint run (p : prog) (n : nat) : option nat :=
+    match p with
+    | Seq p c => match run p n with
+                | Some 0 => run (c true) n
+                | Some _ => run (c false) n
+                | _ => None
+                end
+    | Call m i => match eva n (m (enc i)) with
+                 | Some v => if eqb v (enc 0) then Some 0
+                            else if eqb v (enc 1) then Some 1
+                            else None
+                 | None => None
+                 end
+    | Ret b => Some (if b then 0 else 1)
+    end.
+
+  Lemma run_mono p n1 n2 v :
+    run p n1 = Some v -> n2 >= n1 -> run p n2 = Some v.
+  Proof.
+    induction p in n1, n2, v |- *; intros; cbn in *.
+    - destruct (run p n1) as [ [] | ] eqn:E; try congruence.
+      erewrite IHp; eauto. cbn. eauto.
+      erewrite IHp; eauto. cbn. eauto.
+    - destruct (eva n1) eqn:E; try congruence.
+      erewrite Seval.eva_le; eauto.
+    - eauto.
+  Qed.
+
+  Lemma run_typed p n v :
+    run p n = Some v -> v = 0 \/ v = 1.
+  Proof.
+    intros H.
+    induction p in n, v, H |- *; cbn in *.
+    - destruct run as [ [] | ] eqn:E; try congruence; eauto.
+    - destruct eva; try congruence.
+      destruct (eqb_spec t (enc 0)); subst; try now firstorder congruence.
+      destruct (eqb_spec t (enc 1)); subst; try now firstorder congruence.
+    - destruct b; firstorder congruence.
+  Qed.
+
+  Lemma run_correct p b :
+    Run p b <-> exists n, run p n = Some (if b then 0 else 1).
+  Proof.
+    induction p in b |- *.
+    - rewrite run_seq_rw. setoid_rewrite H. setoid_rewrite IHp. cbn.
+      split.
+      + intros (b' & (n1 & H1) & (n2 & H2)).
+        exists (n1 + n2). erewrite run_mono; eauto. 2: lia.
+        destruct b'.
+        * eapply run_mono; eauto. lia.
+        * eapply run_mono; eauto. lia.
+      + intros (n & Hn). destruct (run p n) as [ [] | ] eqn:E; try congruence.
+        * exists true. eauto.
+        * exists false.
+          eapply run_typed in E as Hle.
+          destruct Hle; try lia. rewrite H0 in *.
+          eauto.
+    - rewrite run_call_rw. cbn. unfold Exec. split.
+      + intros He.
+        edestruct equiv_eva as [n Hn]. eapply He.
+        destruct He as [He _].
+        rewrite <- He. reflexivity.
+        exists n. rewrite Hn.
+        destruct b; cbv; try reflexivity.
+      + intros [n Hn]. destruct eva eqn:E; try congruence.
+        destruct (eqb_spec t (enc 0)), b; subst; try now firstorder congruence.
+        * rewrite eva_equiv. 2: eauto. eapply eval_refl. eapply eva_lam. eauto.
+        * destruct (eqb_spec t (enc 1)); subst; try now firstorder congruence.
+        * destruct (eqb_spec t (enc 1)); subst; try now firstorder congruence.
+          rewrite eva_equiv. 2: eauto. eapply eval_refl. eapply eva_lam. eauto.
+    - rewrite run_ret_rw. cbn. split.
+      + intros ->. exists 0. reflexivity.
+      + intros []. destruct b0, b; congruence.
+  Qed.
+
+  Lemma closure_of' :
+    forall f : input -> prog,
+    exists c, forall i b, Run (f i) b <-> Exec c i b.
+  Proof.
+    assert EPF_L by apply CT_L_to_EPF_L, ct.
+    intros f.
+    unshelve epose (f' := fun i => @partial.implementation.Build_part _ (run (f i)
+                                                                    ) _).
+    {
+      intros ? ? ? ? ?. eapply run_mono; eauto.
+    }
+    destruct (H f') as [c Hc].
+    destruct (enum_closed c) eqn:E.
+    + unshelve eexists. unshelve eexists. exact t. now eapply enum_closed_proc.
+      intros i b.
+      rewrite run_correct.
+      unfold Exec. cbn. unfold f' in Hc. cbn in Hc.
+      unfold partial.equiv in Hc.
+      cbn in Hc.
+      unfold partial.implementation.hasvalue in Hc.
+      cbn in *.
+
+      split.
+      * rewrite <- Hc.
+        intros [n Hn]. unfold T_L in Hn.
+        rewrite E in Hn.
+        destruct eva eqn:Heva; try congruence.
+        eapply unenc_correct2 in Hn as <-.
+        destruct b.
+        -- erewrite eva_equiv. 2: eauto.
+           eapply eval_refl. Lproc. 
+        -- erewrite eva_equiv. 2: eauto.
+           eapply eval_refl. Lproc. 
+      * intros Hv.
+        rewrite <- Hc.
+        unfold T_L. rewrite E.
+        edestruct equiv_eva as [n Hn]. eapply Hv.
+        destruct Hv as [Hv ?].
+        rewrite <- Hv. reflexivity.
+        exists n. setoid_rewrite Hn.
+        rewrite unenc_correct. reflexivity.
+    + unshelve eexists. exists (lam Omega). Lproc.
+      intros i b.
+      rewrite run_correct.
+      unfold Exec. cbn. unfold f' in Hc. cbn in Hc.
+      unfold partial.equiv in Hc.
+      cbn in Hc.
+      unfold partial.implementation.hasvalue in Hc.
+      cbn in *.
+      intros.
+      rewrite <- Hc. split.
+      * intros [n Hn]. unfold T_L in Hn. rewrite E in Hn. congruence.
+      * intros ?. exfalso.
+        assert ((lam Omega) (enc i) ≻ Omega). eapply step_beta. now rewrite Omega_closed.
+        Lproc. rewrite H1 in H0.
+        destruct H0 as [H0 _].
+        destruct b.
+        - eapply Omega_diverges. rewrite H0. cbv. reflexivity.
+        - eapply Omega_diverges. rewrite H0. cbv. reflexivity.
+  Qed.
+
+  Lemma closure_of :
+    forall f : input -> input -> prog,
+    exists c, ClosureOf f c.
+  Proof.
+    intros p. 
+
+    (* this will work *)
+  Admitted.
 
   Lemma closure_of_run_rw {p} {f}:
     ClosureOf f p ->
@@ -482,10 +711,272 @@ Require Import Coq.Logic.Classical_Prop.
 
   End RunLoopHalt.
 
-  Parameter compile : prog -> machine.
-  Axiom compile_run_rw:
+  Local Instance extract_eqb : computable eqb.
+  Proof.
+    extract.
+  Qed.
+
+  Fixpoint prog_to_term (p : prog) : term.
+  Proof.
+    destruct p as [ p c | | ].
+    - exact (prog_to_term p (lam (prog_to_term (c true))) (lam (lam (prog_to_term (c false)))) I).
+    - exact (ext eqb (Eval (enc (app m (enc i)))) (enc (enc 0)) (lam (enc 0)) (lam (ext eqb (Eval (enc (app m (enc i)))) (enc (enc 1)) (lam (enc 1)) (lam Omega) I)) I).
+    - exact (enc (if b then 0 else 1)).
+  Defined.
+
+  Lemma prog_to_term_closed p :
+    closed (prog_to_term p).
+  Proof.
+    induction p; cbn.
+    - Lproc.
+    - unfold Eval. Lproc.
+    - unfold Eval. Lproc.
+  Qed.
+
+  Lemma closed_lam t : closed t -> closed (lam t).
+  Proof.
+    intros.
+    Lproc'. Lproc'. now eapply closed_dcl_x.
+  Qed.
+
+  Lemma Omega_eval t : ~ Omega ⇓ t.
+  Proof.
+    intros (? & ? & ->). eapply Omega_diverges. eauto.
+  Qed.
+
+  Lemma prog_to_term_bool p :
+    forall t, eval (prog_to_term p) t -> exists b : bool, t = enc (if b then 0 else 1).
+  Proof.
+    intros t H. induction p in t, H |- *; cbn in *.
+    + assert (converges (prog_to_term p (lam (prog_to_term (p0 true))) (lam (lam (prog_to_term (p0 false)))) I)) as [[[[t' C] % eval_converges _] % app_converges _] % app_converges _] % app_converges by now eapply Seval.eval_converges.
+      eapply IHp in C as C'.
+      destruct C' as [b0 ->].
+      destruct b0.
+      * eapply H0. rewrite C in H.
+        eapply equiv_eval_proper. 3: exact H. 2: reflexivity. clear.
+         unfold enc at 1. cbn.
+         set (a := (lam (prog_to_term (p0 true)))) in *.
+         assert (proc a). { split. 2: subst a; eauto. subst a. eapply closed_lam, prog_to_term_closed. }
+         set (c := (lam (prog_to_term (p0 false)))).
+         assert (proc c). { subst c. split. 2: eauto. eapply closed_lam, prog_to_term_closed. }
+         Lsimpl.
+         subst a.
+         assert (closed (prog_to_term (p0 true))) by eapply prog_to_term_closed.
+         econstructor.
+         eapply step_beta. rewrite subst_closed. reflexivity. eapply prog_to_term_closed. Lproc.
+      * eapply H0. rewrite C in H.
+        eapply equiv_eval_proper. 3: exact H. 2: reflexivity. clear.
+         unfold enc at 1. cbn.
+         set (a := (lam (prog_to_term (p0 true)))) in *.
+         assert (proc a). { split. 2: subst a; eauto. subst a. eapply closed_lam, prog_to_term_closed. }
+         set (c := (lam (prog_to_term (p0 false)))).
+         assert (proc c). { subst c. split. 2: eauto. eapply closed_lam, prog_to_term_closed. }
+         Lsimpl.
+         subst a.
+         assert (closed (prog_to_term (p0 true))) by eapply prog_to_term_closed.
+         econstructor.
+         eapply step_beta. rewrite subst_closed. reflexivity. eapply prog_to_term_closed. Lproc.
+    + eapply Seval.eval_converges in H as C.
+      eapply app_converges in C as [C _].
+      eapply app_converges in C as [C _].
+      eapply app_converges in C as [C _].
+      eapply app_converges in C as [C _].
+      eapply app_converges in C as [_ C].
+      eapply Eval_converges in C as [t' [C L]].
+      assert (Eval (enc (m (enc i))) == enc t') as E. {
+        change (enc (m (enc i))) with (ext (m (enc i))).
+        destruct L as [? ->].
+        rewrite eval_Eval. 2: now eapply eproc_equiv.
+        reflexivity.
+      }
+      rewrite E in H at 1.
+      assert (ext eqb (enc t') (enc (enc 0)) == enc (eqb t' (enc 0))) as E' by now Lsimpl.
+      rewrite E' in H.
+      destruct (eqb_spec t' (enc 0)).
+      * exists true. subst. eapply eval_unique. eauto. clear H.
+        unfold Eval. Lsimpl. eapply eval_refl. Lproc.
+      * destruct (eqb_spec t' (enc 1)).
+        exists false. subst. eapply eval_unique. eauto. clear H.
+        unfold Eval. Lsimpl.
+        fold Eval.
+        eapply eval_helper. econstructor 2.
+        eapply step_beta. rewrite subst_closed. reflexivity. unfold Eval. Lproc. Lproc.
+        econstructor.
+        rewrite E.
+        Lsimpl.
+        change (eqb (enc 1) (enc 1)) with true. cbn. Lsimpl. eapply eval_refl. Lproc.
+        exfalso.
+        eapply Omega_eval.
+        eapply equiv_eval_proper. 3: exact H. 2: reflexivity. clear H.
+        unfold Eval. Lsimpl. fold Eval.
+        etransitivity. econstructor.
+        eapply step_beta. rewrite subst_closed. reflexivity. unfold Eval. Lproc. Lproc.
+        rewrite E. Lsimpl.
+        destruct (eqb_spec t' (enc 1)); try congruence.
+        econstructor.
+        eapply step_beta. rewrite subst_closed. reflexivity. Lproc. Lproc.
+    + exists b. eapply eval_unique. eauto. eapply eval_refl. Lproc.
+  Qed.
+
+  Lemma prog_to_term_correct p b :
+    Run p b <-> eval (prog_to_term p) (enc (if b then 0 else 1)).
+  Proof.
+    induction p in b |- *; cbn.
+    - rewrite run_seq_rw.
+      setoid_rewrite IHp.
+      setoid_rewrite H.
+      split.
+      {
+        intros (b' & H1 & H2).
+        Lsimpl.
+        destruct b'.
+        + unfold enc at 1. cbn.
+          set (a := (lam (prog_to_term (p0 true)))) in *.
+          assert (proc a). { split. 2: subst a; eauto. subst a. eapply closed_lam, prog_to_term_closed. }
+          set (c := (lam (prog_to_term (p0 false)))).
+          assert (proc c). { subst c. split. 2: eauto. eapply closed_lam, prog_to_term_closed. }
+          Lsimpl.
+          unfold a.
+          assert (closed (prog_to_term (p0 true))) by eapply prog_to_term_closed.
+          eapply eval_helper.
+          econstructor 2. 2: econstructor.
+          eapply step_beta. rewrite subst_closed. reflexivity. eapply prog_to_term_closed. Lproc.
+          eauto.
+        + unfold enc at 1. cbn.
+          set (a := (lam (prog_to_term (p0 true)))) in *.
+          assert (proc a). { split. 2: subst a; eauto. subst a. eapply closed_lam, prog_to_term_closed. }
+          set (c := (lam (prog_to_term (p0 false)))).
+          assert (proc c). { subst c. split. 2: eauto. eapply closed_lam, prog_to_term_closed. }
+          Lsimpl.
+          unfold c.
+          assert (closed (prog_to_term (p0 false))) by eapply prog_to_term_closed.
+          eapply eval_helper.
+          econstructor 2. 2: econstructor.
+          eapply step_beta. rewrite subst_closed. reflexivity. eapply prog_to_term_closed. Lproc.
+          eauto.
+      }
+      intros.
+      assert (converges (prog_to_term p (lam (prog_to_term (p0 true))) (lam (lam (prog_to_term (p0 false)))) I)) as [[[[t' C] % eval_converges _] % app_converges _] % app_converges _] % app_converges by now eapply Seval.eval_converges.
+      eapply prog_to_term_bool in C as C'.
+      destruct C' as [b0 ->].
+      exists b0. split. eauto.
+      destruct b0.
+      * rewrite C in H0 at 1.
+        eapply equiv_eval_proper. 2: reflexivity. 2: exact H0. clear H0.
+        set (a := (lam (prog_to_term (p0 true)))) in *.
+        assert (proc a). { split. 2: subst a; eauto. subst a. eapply closed_lam, prog_to_term_closed. }
+        set (c := (lam (prog_to_term (p0 false)))).
+        assert (proc c). { subst c. split. 2: eauto. eapply closed_lam, prog_to_term_closed. }
+        Lsimpl.
+        subst a.
+        assert (closed (prog_to_term (p0 true))) by eapply prog_to_term_closed.
+        econstructor.
+        eapply step_beta. rewrite subst_closed. reflexivity. eapply prog_to_term_closed. Lproc.
+      * rewrite C in H0 at 1.
+        eapply equiv_eval_proper. 2: reflexivity. 2: exact H0. clear H0.
+        set (a := (lam (prog_to_term (p0 true)))) in *.
+        assert (proc a). { split. 2: subst a; eauto. subst a. eapply closed_lam, prog_to_term_closed. }
+        set (c := (lam (prog_to_term (p0 false)))).
+        assert (proc c). { subst c. split. 2: eauto. eapply closed_lam, prog_to_term_closed. }
+        Lsimpl.
+        subst c.
+        assert (closed (prog_to_term (p0 true))) by eapply prog_to_term_closed.
+        econstructor.
+        eapply step_beta. rewrite subst_closed. reflexivity. eapply prog_to_term_closed. Lproc.
+    - rewrite run_call_rw. unfold Exec.
+      split.
+      + intros H.
+        change (enc (m (enc i))) with (ext (m (enc i))).
+        rewrite eval_Eval at 1; eauto.
+        Lsimpl.
+        destruct b.
+        * change (eqb (enc 0) (enc 0)) with true.
+          rewrite bool_enc_correct. 2: Lproc. 2:{ destruct m. cbn. unfold Eval. Lproc. }
+          Lsimpl. eapply eval_refl. Lproc.
+        * change (eqb (enc 1) (enc 0)) with false.
+          destruct m as [m Hcl].
+          rewrite bool_enc_correct. 2: Lproc. 2:{ unfold Eval. Lproc. }
+          eapply eval_helper.
+          econstructor 2. 2: econstructor.
+          eapply step_beta. rewrite subst_closed. 2: { cbn. unfold Eval. Lproc. } 2: Lproc.
+          reflexivity.
+          cbn in *.
+          rewrite eval_Eval; eauto.
+          Lsimpl.
+          change (eqb (enc 1) (enc 1)) with true.
+          cbn. Lsimpl. eapply eval_refl. Lproc.
+      +  intros H. eapply Seval.eval_converges in H as C.
+         eapply app_converges in C as [C _].
+         eapply app_converges in C as [C _].
+         eapply app_converges in C as [C _].
+         eapply app_converges in C as [C _].
+         eapply app_converges in C as [_ C].
+         eapply Eval_converges in C as [t' [C L]].
+         assert (Eval (enc (m (enc i))) == enc t') as E. {
+           change (enc (m (enc i))) with (ext (m (enc i))).
+           destruct L as [? ->].
+           rewrite eval_Eval. 2: now eapply eproc_equiv.
+           reflexivity.
+         }
+         rewrite E in H at 1.
+         assert (ext eqb (enc t') (enc (enc 0)) == enc (eqb t' (enc 0))) as E' by now Lsimpl.
+         rewrite E' in H. clear E'.
+
+         destruct (eqb_spec t' (enc 0)).
+         * subst. eapply equiv_eval_proper in H.
+           2:{ clear H. unfold Eval. Lsimpl. reflexivity. }
+           2: reflexivity.
+           rewrite C.
+           eauto.
+         * eapply equiv_eval_proper in H.
+           2:{ clear H. unfold Eval. Lsimpl.
+               etransitivity. econstructor.
+               eapply step_beta. rewrite subst_closed. reflexivity.
+               Lproc. Lproc. fold Eval.
+               rewrite E. Lsimpl.
+               reflexivity.
+           } 2: reflexivity.
+           destruct (eqb_spec t' (enc 1)).
+           -- subst.
+              assert (lam (enc 1) (lam # 0) == enc 1). { cbv. now Lsimpl. }
+              rewrite H0 in H. now rewrite C.
+           -- edestruct Omega_eval.
+              assert (lam Omega (lam # 0) == Omega). {
+                econstructor. eapply step_beta. rewrite subst_closed. reflexivity.
+               Lproc. Lproc.
+              }
+              rewrite H0 in H. eauto.
+    - rewrite run_ret_rw. split.
+      + intros ->. apply eval_refl. apply proc_enc.
+      + intros ?.
+        enough ((if b0 then 0 else 1) = (if b then 0 else 1)) by (destruct b0, b; congruence).
+        eapply nat_enc_inj.
+        eapply eval_unique. 2: eassumption.
+        apply eval_refl, proc_enc.
+  Qed.
+
+  Definition compile : prog -> machine.
+    intros p. unshelve eexists.
+    exact (lam (prog_to_term p)).
+    abstract eapply closed_lam, prog_to_term_closed.
+  Defined.
+
+  Lemma compile_run_rw :
     forall i p b,
     Run (Call (compile p) i) b <-> Run p b.
+  Proof.
+    intros i p b. rewrite run_call_rw.
+    unfold Exec, compile.
+    cbn.
+    assert (lam (prog_to_term p) (enc i) == prog_to_term p) as E.
+    { econstructor. eapply step_beta.
+      2: Lproc. rewrite subst_closed. reflexivity. eapply prog_to_term_closed.
+    }
+    rewrite prog_to_term_correct.
+    split.
+    - intros H. now rewrite <- E.
+    - intros H. now rewrite E.
+  Qed.
 
   (** We also define a function to serialize a machine into a string (of type
       input). In the book, this corresponds to notation <M>. *)
@@ -1100,20 +1591,6 @@ Require Import Coq.Logic.Classical_Prop.
       destruct b; auto.
       contradict H0.
       eapply recognizes_run_true_to_in; eauto.
-    Qed.
-
-    Lemma run_seq_rw:
-      forall p q b,
-      Run (Seq p q) b <-> (
-        (exists b', Run p b' /\ Run (q b') b)
-      ).
-    Proof.
-      split; intros. {
-        inversion_clear H.
-        destruct b; exists b1; intuition.
-      }
-      destruct H as (b', (Ha,Hb)).
-      econstructor; eauto.
     Qed.
 
     Lemma run_seq_pre_rw {p} {b'}:
