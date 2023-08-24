@@ -3,7 +3,7 @@ Require Import Coq.Bool.Bool.
 Require Import Coq.Logic.Classical_Prop.
 Require Import Coq.Arith.Cantor.
 From Undecidability Require Import L_facts L.Datatypes.LNat  L.Datatypes.LBool Extract Eval.
-From SyntheticComputability Require Import Models.CT.
+From SyntheticComputability Require Import Models.CT Synthetic.MoreEnumerabilityFacts.
 
   (** These are the assumptions of our theory: *)
   (** We leave the input and the machine as unspecified data types. *)
@@ -51,25 +51,18 @@ From SyntheticComputability Require Import Models.CT.
     b1 = b2.
   Proof.
     intros m i b1 b2 H1 H2.
-    apply bool_enc_inj.
-
-  (*   rewrite <- H1' in H2'. *)
-  (*   destruct b1, b2; cbn in *; firstorder congruence. *)
-  (* Qed. *)
-  Admitted.
+    eapply eval_unique in H1. 2: exact H2.
+    eapply nat_enc_inj in H1.
+    now destruct b1, b2.
+  Qed.
 
   Definition exec_exists:
     forall m i,
     (exists b, Exec m i b) \/ (forall b, ~ Exec m i b).
   Proof.
-  Admitted.
-  (*   intros [s Hs] i. unfold Exec. cbn. *)
-  (*   destruct (classic (exists t, app s (enc i) ⇓ t)) as [[t H] | H]. *)
-  (*   - destruct (term_eq_dec t (enc true)). *)
-  (*     + subst. left. exists true. exists (enc true). split. eauto. firstorder. *)
-  (*     + left. exists false. exists t. split. eauto. firstorder congruence. *)
-  (*   - right. intros ? ?. firstorder. *)
-  (* Qed. *)
+    intros [s Hs] i. unfold Exec. cbn.
+    destruct (classic (exists b : bool, app s (enc i) ⇓ enc (if b then 0 else 1))) as [[t H] | H]; firstorder.
+  Qed.
 
   Inductive prog :=
     (**
@@ -195,10 +188,6 @@ From SyntheticComputability Require Import Models.CT.
 
   (** We define a notation for sequencing. *)
   Notation "'mlet' x <- e 'in' c" := (Seq e (fun x => c)) (at level 60, right associativity).
-
-  Definition ClosureOf (f:input -> input -> prog) (c:input -> machine) :=
-    forall param i b, Run (f param i) b <-> Exec (c param) i b.
-
 
   Axiom ct : CT_L.
 
@@ -356,14 +345,70 @@ From SyntheticComputability Require Import Models.CT.
         - eapply Omega_diverges. rewrite H0. cbv. reflexivity.
   Qed.
 
+  Definition ClosureOf (f:input -> input -> prog) (c:input -> machine) :=
+    forall param i b, Run (f param i) b <-> Exec (c param) i b.
+
   Lemma closure_of :
     forall f : input -> input -> prog,
     exists c, ClosureOf f c.
   Proof.
-    intros p. 
+    assert (EPF.EPF_for θ_L). {
+      eapply EPF.EPF_nonparam_SMN_to_EPF.
+      apply CT_L_to_EPF_L, ct.
+      eapply PSMN_L.
+    }
 
-    (* this will work *)
-  Admitted.
+    intros f.
+    unshelve epose (f' := fun param i => @partial.implementation.Build_part _ (run (f param i)
+                                                                    ) _).
+    {
+      intros ? ? ? ? ?. eapply run_mono; eauto.
+    }
+    destruct (H f') as [c Hc].
+    unshelve eexists.
+    {
+      intros param. destruct (enum_closed (c param)) eqn:E.
+      exists t. abstract now eapply enum_closed_proc.
+      exists (lam Omega). abstract Lproc.
+    }
+    intros param i b. 
+    rewrite run_correct.
+    unfold Exec. cbn. unfold f' in Hc. cbn in Hc.
+    unfold partial.equiv in Hc.
+    cbn in Hc.
+    unfold partial.implementation.hasvalue in Hc.
+    cbn in *.
+    generalize (closure_of_subproof c param). intros SP.
+    destruct (enum_closed (c param)) eqn:E.
+    + split.
+      * rewrite <- Hc.
+        intros [n Hn]. unfold T_L in Hn.
+        rewrite E in Hn.
+        destruct eva eqn:Heva; try congruence.
+        eapply unenc_correct2 in Hn as <-.
+        destruct b.
+        -- erewrite eva_equiv. 2: eauto.
+           eapply eval_refl. Lproc. 
+        -- erewrite eva_equiv. 2: eauto.
+           eapply eval_refl. Lproc. 
+      * intros Hv.
+        rewrite <- Hc.
+        unfold T_L. rewrite E.
+        edestruct equiv_eva as [n Hn]. eapply Hv.
+        destruct Hv as [Hv ?].
+        rewrite <- Hv. reflexivity.
+        exists n. setoid_rewrite Hn.
+        rewrite unenc_correct. reflexivity.
+    + rewrite <- Hc. split.
+      * intros [n Hn]. unfold T_L in Hn. rewrite E in Hn. congruence.
+      * intros ?. exfalso.
+        assert ((lam Omega) (enc i) ≻ Omega). eapply step_beta. now rewrite Omega_closed.
+        Lproc. rewrite H1 in H0.
+        destruct H0 as [H0 _].
+        destruct b.
+        - eapply Omega_diverges. rewrite H0. cbv. reflexivity.
+        - eapply Omega_diverges. rewrite H0. cbv. reflexivity.
+  Qed.
 
   Lemma closure_of_run_rw {p} {f}:
     ClosureOf f p ->
@@ -978,18 +1023,95 @@ From SyntheticComputability Require Import Models.CT.
     - intros H. now rewrite E.
   Qed.
 
+  Program Definition enum_machine : nat -> option machine :=
+    fun n => match enum_closed n with
+          | Some t => Some (exist _ t _)
+          | None => None
+          end.
+  Next Obligation.
+    intros. subst filtered_var.
+    eapply enum_closed_proc.
+    now rewrite Heq_anonymous.
+  Qed.
+
+  Lemma infinite_machine :
+    FinitenessFacts.generative (fun m : machine => True).
+  Proof.
+    intros l.
+    pose (n := 1 + list_max (map (fun m => size (proj1_sig m)) l)).
+    unshelve eexists. exists (Nat.iter n lam I).
+    { induction n; cbn; Lproc. }
+    split; eauto.
+    intros H.
+    assert (2 + n el (map (fun m => size (proj1_sig m)) l)).
+    { eapply in_map_iff.
+      eexists. split. 2: eassumption.
+      cbn. f_equal. generalize (list_max (map (fun m : {s : term | closed s} => size (proj1_sig m)) l)).
+      clear. intros n0. change (S (S n0)) with (size I + n0). generalize I.
+      induction n0; cbn; intros.
+      + lia.
+      + rewrite IHn0. lia.
+    }
+    destruct (list_max_le (map (fun m : {s : term | closed s} => size (proj1_sig m)) l) n) as [Hl _].
+    unshelve epose proof (Hll := Hl _).
+    subst n. lia. eapply Forall_forall in Hll.
+    2:{ eauto. }
+    lia.
+  Qed.
+
+  Variable PI : forall s, forall p1 p2 : closed s, p1 = p2.
+
   (** We also define a function to serialize a machine into a string (of type
       input). In the book, this corresponds to notation <M>. *)
-  Parameter encode_mach: machine -> input.
+  Program Definition encode_mach : machine -> input :=
+    fun m => @G _ enum_machine (fun m => True) _ _ _ m Logic.I.
+  Next Obligation.
+    cbn. intros. split; eauto. intros.
+    destruct x as [t Ht].
+    exists (I_term t). unfold enum_machine.
+    clear.
+    pose proof (I_term_correct'' Ht). clear - H.
+    generalize (@enum_machine_obligation_1 (I_term t)).
+    rewrite H. intros. repeat f_equal.
+    eapply PI.
+  Qed.
+  Next Obligation.
+    intros ? [] [].
+    destruct (term_eq_dec x x0).
+    - left. subst. repeat f_equal. eapply PI.
+    - right. intros E. inversion E. congruence.
+  Qed.
+  Next Obligation.
+    intros. eapply infinite_machine.
+  Defined.
+  
   (** Similarly, we have a function that takes a string and produces a machine.
       In the book, this corresponds to notation M = <M> *)
-  Parameter decode_mach: input -> machine.
+  Program Definition decode_mach: input -> machine :=
+    fun i => @F _ enum_machine (fun m => True) _ _ _ i.
+  Next Obligation.
+    intros. eapply encode_mach_obligation_1.
+  Defined.
+  Next Obligation.
+    intros. eapply encode_mach_obligation_2.
+  Defined.
+  Next Obligation.
+    intros. eapply infinite_machine.
+  Defined.
+    
   (** Decoding and encoding a machine yields the same machine. *)
-  Axiom decode_encode_mach_rw:
+  Lemma decode_encode_mach_rw:
     forall m,
     decode_mach (encode_mach m) = m.
-  Axiom encode_decode_mach_rw:
+  Proof.
+    unfold decode_mach, encode_mach. intros. now rewrite FG.
+  Qed.
+
+  Lemma encode_decode_mach_rw:
     forall w, encode_mach (decode_mach w) = w.
+  Proof.
+    intros. unfold decode_mach, encode_mach. now rewrite GF.
+  Qed.
 
   (** Given a machine and a string, encodes the pair as a string.
       In the book, this corresponds to notation <M, w>. *)
